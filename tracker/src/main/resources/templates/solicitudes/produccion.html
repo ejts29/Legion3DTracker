@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Legión 3D - Producción y Despacho</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- LEGIÓN 3D TRACKER : MÓDULO DE PRODUCCIÓN Y DESPACHO------
+  Ubicación: src/main/resources/templates/solicitudes/produccion.html
+
+  Este componente representa la fase final del flujo de valor de la aplicación. 
+  Nuestro equipo diseñó esta interfaz como el "Centro de Control Operativo", 
+  donde los compromisos comerciales se transforman en productos físicos. 
+
+  Arquitectónicamente, el módulo gestiona tres estados críticos de la máquina 
+  de estados del sistema:
+  1. Validación de Pagos: El puente entre la venta y la fabricación.
+  2. Producción Activa: Control de los trabajos que están en las máquinas.
+  3. Logística de Salida: Gestión de entregas (Starken, Retiro o Digital).
+
+  La interfaz utiliza un sistema de códigos de colores (Verde, Esmeralda, Azul) 
+  para permitir al operador priorizar tareas de un vistazo (Visual Management).
+-->
+    <style>
+        /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+        html {
+            font-size: 90% !important;
+        }
+
+        /* Maximiza el contraste de la tipografía para datos críticos sobre el fondo oscuro corporativo */
+        .text-white-bright {
+            color: #ffffff !important;
+        }
+
+        /* Identificador visual de sección (color verde): permite reconocer el área de validación de pagos al instante */
+        .border-prod-payment {
+            border-top: 3px solid #4ade80 !important;
+        }
+
+        /* Borde verde para pagos */
+
+        /* Identificador visual de sección (color esmeralda): destaca las órdenes que están físicamente en las impresoras */
+        .border-prod-active {
+            border-top: 3px solid #10b981 !important;
+        }
+
+        /* Identificador visual de sección (color azul): marca la zona de control de calidad y despacho final */
+        .border-prod-ready {
+            border-top: 3px solid #0ea5e9 !important;
+        }
+
+        /* Estandarización de etiquetas de estado: define dimensiones y peso visual para facilitar la lectura rápida */
+        .status-badge-prod {
+            font-size: 0.65rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        /* Estilo de etiqueta para pagos: utiliza transparencia (rgba) y bordes definidos para una estética moderna */
+        .bg-badge-payment {
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+            border: 1px solid #4ade80;
+        }
+
+        /* Estilo de etiqueta para producción: resalta el estado activo del taller mediante el tono esmeralda */
+        .bg-badge-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        /* Estilo de etiqueta para despachos: diferencia la logística mediante el uso de la gama de azules */
+        .bg-badge-ready {
+            background: rgba(14, 165, 233, 0.1);
+            color: #0ea5e9;
+            border: 1px solid #0ea5e9;
+        }
+
+        /* Configuración base de botones de acción: incluye transiciones de 0.3s para mejorar la experiencia de usuario (UX) */
+        .btn-action-prod {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 6px 15px;
+            border-radius: 6px;
+            transition: 0.3s;
+            border: 1px solid transparent;
+        }
+
+        /* Botón de finalización: color temático esmeralda que indica la conclusión exitosa de una tarea técnica */
+        .btn-action-green {
+            color: #10b981;
+            border-color: #10b981;
+        }
+
+        /* Interacción de finalización: invierte los colores al pasar el cursor para confirmar la intención de clic */
+        .btn-action-green:hover {
+            background: #10b981;
+            color: #000;
+        }
+
+        /* Botón de logística: tono azul específico para acciones relacionadas con envíos y entregas digitales */
+        .btn-action-blue {
+            color: #0ea5e9;
+            border-color: #0ea5e9;
+        }
+
+        /* Interacción de logística: feedback visual inmediato para el operador al gestionar el cierre del pedido */
+        .btn-action-blue:hover {
+            background: #0ea5e9;
+            color: #000;
+        }
+
+        /* Botón de finanzas: tono verde claro para diferenciar la validación de dinero de la producción física */
+        .btn-action-lightgreen {
+            color: #4ade80;
+            border-color: #4ade80;
+        }
+
+        /* Interacción de finanzas: resalta la acción de aprobar un pago para mover el pedido a la cola de impresión */
+        .btn-action-lightgreen:hover {
+            background: #4ade80;
+            color: #000;
+        }
+
+        /* Aniquilar flechas de incremento en TODOS los inputs numéricos del sistema */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .text-white {
+            --bs-text-opacity: 1;
+            color: #198754 !important;
+        }
+
+        /* Resaltado para pedidos con saldo $0 en bandejas de salida */
+        .l3d-row-liquidated {
+            background-color: rgba(16, 185, 129, 0.1) !important;
+            border-left: 4px solid #10b981 !important;
+        }
+    </style>
+
+</head>
+
+<body class="bg-black text-white">
+
+    <!-- ESTRUCTURA DE GESTIÓN OPERATIVA: PRODUCCIÓN Y LOGÍSTICA------
+  Este bloque es el corazón del taller. Como equipo, diseñamos una interfaz 
+  tripartita que separa las responsabilidades financieras, técnicas y logísticas 
+  en contenedores independientes para evitar la sobrecarga cognitiva del operador.
+-->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Integración de componentes de navegación -->
+            <div th:replace="~{layout/sidebar :: sidebar}"></div>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+                <!-- ENCABEZADO DINÁMICO -->
+                <div class="d-flex justify-content-between align-items-center mb-4 pt-3">
+                    <h2 class="text-white-bright fw-bold m-0">
+                        <i class="fas fa-industry text-gold me-2"></i> Módulo de Producción y Despacho
+                    </h2>
+                    <button class="btn btn-dark btn-sm border-secondary opacity-50"
+                        onclick="location.reload()">REFRESCAR TABLAS</button>
+                </div>
+
+                <!-- 
+                BANDEJA 1: PAGOS POR VERIFICAR (Validación Financiera)
+                Estado: PAGO_ENVIADO. 
+                Esta sección es crítica para la tesorería. Permite a Luis confirmar que 
+                el dinero está en la cuenta antes de gastar material de impresión.
+            -->
+                <div class="section-container shadow-lg border-prod-payment p-0 overflow-hidden mb-5">
+                    <div class="p-4 border-bottom border-secondary d-flex justify-content-between align-items-center"
+                        style="background: rgba(74, 222, 128, 0.05);">
+                        <div>
+                            <h5 class="m-0 fw-bold text-white-bright mb-1">Pagos por Verificar</h5>
+                            <span class="status-badge-prod bg-badge-payment">Validación Interna Pendiente</span>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover m-0" id="tablaPagos">
+                            <thead>
+                                <tr class="small text-uppercase text-muted">
+                                    <th class="ps-4">Tracking</th>
+                                    <th>Cliente</th>
+                                    <th>Total a Cobrar</th>
+                                    <th>Comprobante / Origen</th>
+                                    <th class="text-center pe-4">Acción Interna</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="pedido : ${pedidos}" th:if="${pedido?.estadoActual == 'PAGO_ENVIADO'}"
+                                    th:with="totalPagadoNeto=${#aggregates.sum(pedido.pagos.![monto]) ?: 0}, 
+                                             totalPagadoBruto=${T(java.lang.Math).floor(totalPagadoNeto * 1.19)},
+                                             totalBruto=${pedido.precioFinal != null ? T(java.lang.Math).floor(pedido.precioFinal * 1.19) : 0}"
+                                    th:classappend="${totalPagadoBruto >= (totalBruto * 0.5) ? 'border-start border-4 border-success' : ''}"
+                                    class="align-middle">
+                                    <td class="ps-4 fw-bold text-gold font-monospace"
+                                        th:text="${pedido?.codigoSeguimiento}">LEG-XXXX</td>
+                                    <td>
+                                        <div class="text-white-bright fw-bold" th:text="${pedido?.cliente?.nombre}">
+                                            Nombre Cliente</div>
+                                        <div th:if="${pedido.estadoActual == 'PAGO_ENVIADO'}"
+                                            class="text-warning small fw-bold">
+                                            <i class="fas fa-clock me-1"></i> EN VERIFICACIÓN
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-info"
+                                            th:text="${pedido?.precioFinal != null ? '$' + #numbers.formatDecimal(pedido.precioFinal * 1.19, 0, 'COMMA', 0, 'POINT') : '---'}">
+                                            $0</div>
+                                        <div class="text-white-50 small"
+                                            th:text="'Abonado (Bruto): $' + ${#numbers.formatDecimal(totalPagadoBruto, 0, 'COMMA', 0, 'POINT')}">
+                                            Abonado (Bruto): $0</div>
+                                    </td>
+
+                                    <!-- 
+                                    LÓGICA DE COMUNICACIÓN OMNICANAL (WhatsApp Bridge)
+                                    Este es uno de los puntos más innovadores del sistema. 
+                                    1. Usamos 'th:with' para crear variables locales de procesamiento.
+                                    2. Implementamos una limpieza de strings mediante '#strings.replace' para eliminar 
+                                       caracteres no numéricos (+ y espacios) de los teléfonos.
+                                    3. Generamos el enlace universal 'wa.me' permitiendo que Luis abra el chat 
+                                       con el cliente en una pestaña nueva con un solo clic.
+                                -->
+                                    <td>
+                                        <!-- 
+                                            CONTENEDOR OMNICANAL (WhatsApp + Auditoría)
+                                            Refactorizado: El botón de chat es permanente y el visor de evidencia 
+                                            se gestiona internamente en el modal de Revisar Banco.
+                                        -->
+                                        <div class="d-flex gap-2"
+                                            th:with="telefono=${pedido?.detallesTecnicos?.telefonoContacto != null ? pedido.detallesTecnicos.telefonoContacto : (pedido?.cliente?.telefono != null ? pedido.cliente.telefono : '')},
+                                                      telLimpio=${#strings.replace(#strings.replace(telefono != null ? telefono : '', '+', ''), ' ', '')}">
+
+                                            <!-- BOTÓN 1: WHATSAPP (SIEMPRE VISIBLE) -->
+                                            <a th:href="'https://wa.me/' + ${telLimpio}" target="_blank"
+                                                class="btn btn-sm btn-outline-success fw-bold py-1 flex-fill text-nowrap">
+                                                <i class="fab fa-whatsapp me-1"></i> Abrir Chat
+                                            </a>
+
+                                            <!-- BOTÓN 2: AUDITORÍA BANCARIA (VISOR INTEGRADO + CONTADOR DE PAGOS) -->
+                                            <button class="btn btn-sm btn-outline-info px-2 position-relative"
+                                                th:onclick="window.abrirModalAuditoria([[${pedido.id}]], [[${pedido.precioFinal}]], [[${pedido.ultimoComprobante}]], [[${pedido.codigoSeguimiento}]], [[${pedido.pagosCount}]], 'bandeja1')">
+                                                <i class="fas fa-university"></i>
+                                                <span th:if="${pedido.pagosCount > 0}"
+                                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                                    style="font-size: 0.5rem; padding: 0.25em 0.5em;"
+                                                    th:text="${pedido.pagosCount}">0</span>
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                    <td class="text-center pe-4">
+                                        <button class="btn btn-action-prod btn-action-lightgreen"
+                                            th:onclick="validarPasoAProduccion([[${pedido?.id}]], this)">
+                                            <i class="fas fa-play-circle me-1"></i> A Producción
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(pedidos.?[estadoActual == 'PAGO_ENVIADO'])}">
+                                    <td colspan="5" class="text-center text-muted py-4">No hay pagos pendientes de
+                                        verificación en este momento.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 
+                BANDEJA 2: TRABAJOS EN CURSO (Cola de Impresión)
+                Estado: EN_PRODUCCION.
+                Muestra los parámetros técnicos necesarios para el operario 3D (Material y Color).
+            -->
+                <div class="section-container shadow-lg border-prod-active p-0 overflow-hidden mb-5">
+                    <div class="p-4 border-bottom border-secondary d-flex justify-content-between align-items-center"
+                        style="background: rgba(16, 185, 129, 0.03);">
+                        <div>
+                            <h5 class="m-0 fw-bold text-white-bright mb-1">Trabajos en Curso</h5>
+                            <span class="status-badge-prod bg-badge-active">Máquinas Operando</span>
+                        </div>
+                        <input type="text" id="buscarProd" class="form-control l3d-input w-25" placeholder="Buscar..."
+                            onkeyup="filtrarTabla('buscarProd', 'tablaProduccion')">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover m-0" id="tablaProduccion">
+                            <thead>
+                                <tr class="small text-uppercase text-muted">
+                                    <th class="ps-4">Tracking</th>
+                                    <th>Cliente / Contacto</th>
+                                    <th>Material / Color</th>
+                                    <th>Recursos</th>
+                                    <th>Método de Entrega Esperado</th>
+                                    <th class="text-center pe-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="pedido : ${pedidos}" th:if="${pedido?.estadoActual == 'EN_PRODUCCION'}"
+                                    class="align-middle">
+                                    <td class="ps-4 fw-bold text-gold font-monospace"
+                                        th:text="${pedido?.codigoSeguimiento}">LEG-XXXX</td>
+                                    <td>
+                                        <div class="text-white-bright fw-bold" th:text="${pedido?.cliente?.nombre}">
+                                            Nombre Cliente</div>
+                                        <div class="text-white-50 small" th:text="${pedido?.cliente?.email}">
+                                            email@correo.com</div>
+                                    </td>
+                                    <td>
+                                        <div class="small" th:text="${pedido?.servicioSolicitado}">Impresión 3D</div>
+                                        <div class="fw-bold text-info"
+                                            th:text="${(pedido?.detallesTecnicos?.materialSolicitado ?: 'N/A') + ' - ' + (pedido?.detallesTecnicos?.colorSolicitado ?: 'N/A')}">
+                                            Material - Color</div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-gold py-1"
+                                            th:onclick="abrirRecursos([[${pedido.id}]])">
+                                            <i class="fas fa-folder-open me-1"></i> VER
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="text-warning small fw-bold"><i class="fas fa-truck me-1"></i> <span
+                                                th:text="${pedido?.detallesTecnicos?.metodoEntrega ?: 'No especificado'}">Starken</span>
+                                        </div>
+                                        <div class="text-white-50 small"
+                                            th:text="${pedido?.detallesTecnicos?.comuna ?: 'Sin dirección'}">Comuna
+                                        </div>
+                                    </td>
+                                    <td class="text-center pe-4">
+                                        <button class="btn btn-action-prod btn-action-green"
+                                            th:onclick="abrirModalFinalizar([[${pedido?.id}]], [[${pedido?.codigoSeguimiento}]])">
+                                            <i class="fas fa-check-circle me-1"></i> Finalizar
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(pedidos.?[estadoActual == 'EN_PRODUCCION'])}">
+                                    <td colspan="5" class="text-center text-muted py-4">No hay trabajos en las máquinas
+                                        en este momento.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 
+    BANDEJA 3: LISTOS PARA DESPACHO (Control de Calidad y Salida)
+    Estado: LISTO_PARA_ENTREGA.
+    Implementación de Seguridad: El botón de despacho solo se activa con Saldo Cero.
+-->
+                <div class="section-container shadow-lg border-prod-ready p-0 overflow-hidden mb-5">
+                    <div class="p-4 border-bottom border-secondary d-flex justify-content-between align-items-center"
+                        style="background: rgba(14, 165, 233, 0.03);">
+                        <div>
+                            <h5 class="m-0 fw-bold text-white-bright mb-1">Listos para Despacho / Retiro</h5>
+                            <span class="status-badge-prod bg-badge-ready">Control de Calidad OK</span>
+                        </div>
+                        <input type="text" id="buscarDespacho" class="form-control l3d-input w-25"
+                            placeholder="Buscar..." onkeyup="filtrarTabla('buscarDespacho', 'tablaDespacho')">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover m-0" id="tablaDespacho">
+                            <thead>
+                                <tr class="small text-uppercase text-muted">
+                                    <th class="ps-4">Tracking</th>
+                                    <th>Cliente</th>
+                                    <th>Total a Cobrar (Bruto)</th> <!-- Columna heredada de tesorería -->
+                                    <th>Dirección / Logística</th>
+                                    <th class="text-center pe-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="pedido : ${pedidos}"
+                                    th:if="${pedido?.estadoActual == 'LISTO_PARA_ENTREGA'}"
+                                    th:with="totalAbonadoNeto=${#aggregates.sum(pedido.pagos.![monto]) ?: 0}, 
+                                             totalBruto=${pedido.precioFinal != null ? T(java.lang.Math).floor(pedido.precioFinal * 1.19) : 0},
+                                             saldoPendiente=${totalBruto - T(java.lang.Math).floor(totalAbonadoNeto * 1.19)},
+                                             pagosCount=${not #lists.isEmpty(pedido.pagos) ? #lists.size(pedido.pagos) : 0}"
+                                    th:classappend="${saldoPendiente <= 5 ? 'l3d-row-liquidated' : ''}"
+                                    class="align-middle">
+
+                                    <td class="ps-4 fw-bold text-gold font-monospace"
+                                        th:text="${pedido?.codigoSeguimiento}">LEG-XXXX</td>
+                                    <td>
+                                        <div class="text-white-bright fw-bold" th:text="${pedido?.cliente?.nombre}">
+                                            Nombre Cliente</div>
+                                        <div class="badge bg-primary px-2 mt-1" style="font-size: 0.6rem;">LISTO</div>
+                                    </td>
+
+                                    <!-- INFO FINANCIERA EN TIEMPO REAL -->
+                                    <td>
+                                        <div class="fw-bold"
+                                            th:classappend="${saldoPendiente > 5 ? 'text-danger' : 'text-success'}"
+                                            th:text="${'$' + #numbers.formatDecimal(totalBruto, 0, 'COMMA', 0, 'POINT')}">
+                                            $0 </div>
+                                        <div class="text-white-50 small"
+                                            th:text="'Saldo: $' + ${#numbers.formatDecimal(saldoPendiente, 0, 'COMMA', 0, 'POINT')}">
+                                            Saldo: $0 </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="text-info small fw-bold"><i class="fas fa-map-marker-alt me-1"></i>
+                                            <span
+                                                th:text="${pedido?.detallesTecnicos?.metodoEntrega ?: 'Por definir'}">Método</span>
+                                        </div>
+                                        <div class="text-white-50 small"
+                                            th:text="${pedido?.detallesTecnicos?.comuna ?: 'Sin dirección'}">Dirección
+                                        </div>
+                                    </td>
+
+                                    <!-- TRIPLE ACCIÓN LÓGICA -->
+                                    <td class="text-center pe-4">
+                                        <div class="d-flex gap-2 justify-content-center"
+                                            th:with="telefono=${pedido?.detallesTecnicos?.telefonoContacto != null ? pedido.detallesTecnicos.telefonoContacto : (pedido?.cliente?.telefono != null ? pedido.cliente.telefono : '')},
+                                      telLimpio=${#strings.replace(#strings.replace(telefono != null ? telefono : '', '+', ''), ' ', '')}">
+
+                                            <!-- WhatsApp -->
+                                            <a th:href="'https://wa.me/' + ${telLimpio}" target="_blank"
+                                                class="btn btn-sm btn-outline-success px-2" title="Cobrar por WhatsApp">
+                                                <i class="fab fa-whatsapp"></i>
+                                            </a>
+
+                                            <!-- Auditoría Bancaria + contador de pagos -->
+                                            <button class="btn btn-sm btn-outline-info px-2 position-relative"
+                                                title="Revisar Banco"
+                                                th:onclick="window.abrirModalAuditoria([[${pedido.id}]], [[${pedido.precioFinal}]], [[${pedido.ultimoComprobante}]], [[${pedido.codigoSeguimiento}]], [[${pedido.pagosCount}]], 'bandeja3')">
+                                                <i class="fas fa-university"></i>
+                                                <span th:if="${pedido.pagosCount > 0}"
+                                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light shadow"
+                                                    th:text="${pedido.pagosCount}">0</span>
+                                            </button>
+
+                                            <!-- Despachar (Bloqueado si hay saldo) -->
+                                            <button class="btn btn-sm py-1 fw-bold"
+                                                th:id="'btnDespacho-' + ${pedido.id}"
+                                                th:classappend="${saldoPendiente > 5 ? 'btn-dark opacity-25 border-secondary' : 'btn-action-prod btn-action-blue'}"
+                                                th:disabled="${saldoPendiente > 5}"
+                                                th:onclick="abrirModalDespachar([[${pedido?.id}]], [[${pedido?.codigoSeguimiento}]])">
+                                                <i class="fas fa-paper-plane me-1"></i> Despachar
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 
+    MODAL 1: FINALIZACIÓN TÉCNICA
+    Este diálogo confirma que la pieza física cumple con los estándares de calidad 
+    y dispara la notificación de "Listo" al cliente.
+-->
+                <div class="modal fade" id="modalFinalizar" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content shadow-lg bg-black border border-success">
+                            <div class="modal-header border-secondary bg-dark">
+                                <h5 class="modal-title text-success fw-bold"><i class="fas fa-check-circle me-2"></i>
+                                    Finalizar
+                                    Producción</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-white text-center py-4">
+                                <i class="fas fa-clipboard-check text-success mb-3" style="font-size: 3rem;"></i>
+                                <h4 class="fw-bold">¿El pedido <span id="span-finalizar-tracking"
+                                        class="text-gold"></span> está
+                                    listo?</h4>
+                                <p class="text-white-50 small mt-2">Al confirmar, el pedido pasará a "Listo para
+                                    Entrega" y el
+                                    cliente recibirá un correo automático avisando que su proyecto ha sido terminado.
+                                </p>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-success px-4 fw-bold"
+                                    onclick="ejecutarFinalizar(this)">Sí,
+                                    está listo</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 
+    MODAL 2: GESTIÓN DE SALIDA (LOGÍSTICA)
+    Permite registrar los datos reales del despacho (N° de seguimiento de Starken 
+    o enlaces Drive para entregas digitales), cerrando formalmente el ciclo del pedido.
+-->
+                <div class="modal fade" id="modalDespachar" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content shadow-lg bg-black border border-info">
+                            <div class="modal-header border-secondary bg-dark">
+                                <h5 class="modal-title text-info fw-bold"><i class="fas fa-truck-loading me-2"></i>
+                                    Cerrar Pedido y
+                                    Entregar</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-white">
+                                <p class="text-white-50 small mb-4">Ingresa los datos logísticos para el pedido <strong
+                                        id="span-despachar-tracking" class="text-gold"></strong>. Esto cerrará el ciclo
+                                    y se
+                                    notificará al cliente.</p>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label text-info small fw-bold">MÉTODO REAL DE ENTREGA
+                                            *</label>
+                                        <select id="selectMetodoDespacho" class="form-select l3d-input"
+                                            onchange="cambiarCamposDespacho()">
+                                            <option value="STARKEN">Envío Físico (Starken, Chilexpress)</option>
+                                            <option value="RETIRO">Retiro Presencial en Taller</option>
+                                            <option value="DIGITAL">Entrega 100% Digital</option>
+                                            <option value="MIXTO">Mixto (Físico + Archivos Digitales)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3" id="bloqueFisico">
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">LINK DE SEGUIMIENTO (TRACKING)
+                                            *</label>
+                                        <input type="text" id="inputTrackingLink" class="form-control l3d-input"
+                                            placeholder="Ej: https://starken.cl/seguimiento/123456789">
+                                        <small class="text-muted">Si es Retiro, este campo se ignorará.</small>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mt-1 d-none" id="bloqueDigital">
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">ENLACE DRIVE (ARCHIVOS
+                                            DIGITALES FINALES)
+                                            *</label>
+                                        <input type="text" id="inputDigitalLink" class="form-control l3d-input"
+                                            placeholder="Ej: https://drive.google.com/file/d/.../view">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-info px-4 fw-bold text-dark"
+                                    onclick="ejecutarDespacho(this)">
+                                    <i class="fas fa-check-double me-2"></i> Confirmar Entrega
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODAL: VISOR DE RECURSOS DUALES (Soldadura Lógica) -->
+                <div class="modal fade" id="modalRecursos" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content bg-black border border-gold shadow-lg">
+                            <div class="modal-header border-secondary bg-dark">
+                                <h5 class="modal-title text-gold fw-bold"><i class="fas fa-folder-open me-2"></i>
+                                    Recursos del
+                                    Pedido</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center py-4">
+                                <div class="d-grid gap-3">
+                                    <button id="btn-recurso-archivo" class="btn btn-outline-info py-3 d-none">
+                                        <i class="fas fa-file-download fa-2x mb-2 d-block"></i>
+                                        <span class="fw-bold">DESCARGAR ARCHIVO FÍSICO</span>
+                                    </button>
+                                    <button id="btn-recurso-link" class="btn btn-outline-warning py-3 d-none">
+                                        <i class="fas fa-external-link-alt fa-2x mb-2 d-block"></i>
+                                        <span class="fw-bold">ABRIR LINK EXTERNO</span>
+                                    </button>
+                                    <div id="no-recursos-msg" class="text-muted d-none">No hay archivos ni links
+                                        asociados a este
+                                        pedido.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MUNDO 1: CAJA REGISTRADORA MANUAL (F2 / Taller) -->
+                <div class="modal fade" id="modalPagoManualSmall" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content shadow-lg bg-black border border-success">
+                            <div class="modal-header border-secondary bg-dark">
+                                <h5 class="modal-title text-success fw-bold"><i class="fas fa-cash-register me-2"></i>
+                                    Registrar Pago Manual</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-white px-4 py-4">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">TRACKING DEL PEDIDO</label>
+                                        <input type="text" id="pagoManualTracking"
+                                            class="form-control l3d-input text-info fw-bold" readonly>
+                                        <input type="hidden" id="pagoManualId">
+                                        <input type="hidden" id="pagoManualTotalNeto">
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">MONTO BRUTO RECIBIDO ($)
+                                            *</label>
+                                        <input type="number" id="pagoManualMonto" class="form-control l3d-input"
+                                            placeholder="Monto entregado">
+                                        <div id="pagoManualInfo" class="mt-2 text-white-50 small fw-bold text-center">
+                                            Esperando ingreso...</div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">MÉTODO DE PAGO *</label>
+                                        <select id="pagoManualMetodo" class="form-select l3d-input">
+                                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                                            <option value="Efectivo / Presencial">Efectivo / Presencial</option>
+                                            <option value="Web (Transbank / MercadoPago)">Web (Transbank / MercadoPago)
+                                            </option>
+                                            <option value="Link de Pago">Link de Pago</option>
+                                            <option value="Depósito por Caja">Depósito por Caja</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label text-gold small fw-bold">CONCEPTO / NOTA</label>
+                                        <input type="text" id="pagoManualConcepto"
+                                            class="form-control l3d-input text-white"
+                                            placeholder="Ej: Abono del 50% por transferencia...">
+                                        <small class="text-muted" style="font-size: 0.7rem;">Este texto se guardará en
+                                            la base de datos junto al pago.</small>
+                                    </div>
+                                    <div class="col-12 mt-3 pt-3 border-top border-secondary">
+                                        <label class="form-label text-white-50 small fw-bold">EVIDENCIA OPCIONAL (FOTO
+                                            BILLETE/RECIBO)</label>
+                                        <input type="file" id="pagoManualFile"
+                                            class="form-control l3d-input form-control-sm">
+                                        <small class="text-muted" style="font-size: 0.7rem;">La foto se subirá a Google
+                                            Drive.</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-success px-4 fw-bold"
+                                    onclick="ejecutarMotorContable('manual')">
+                                    <i class="fas fa-check-double me-2"></i> Confirmar Pago
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MUNDO 2: CENTRO DE AUDITORÍA BANCARIA (Vitaminizado) -->
+                <div class="modal fade" id="modalAuditoriaBancaria" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                        <div class="modal-content shadow-lg bg-black border border-info">
+                            <div class="modal-header border-secondary bg-dark">
+                                <h5 class="modal-title text-info fw-bold"><i class="fas fa-university me-2"></i> Consola
+                                    de Liquidación y Auditoría 1</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body p-0">
+                                <input type="hidden" id="auditId">
+                                <input type="hidden" id="auditTracking">
+                                <input type="hidden" id="auditTotalNeto">
+                                <input type="hidden" id="auditMetodo" value="Transferencia Bancaria">
+                                <div class="row g-0">
+                                    <div class="col-lg-5 p-4 border-end border-secondary">
+                                        <h6 class="text-gold fw-bold mb-3 border-bottom border-secondary pb-2">Resumen
+                                            Financiero del Pedido</h6>
+
+                                        <!-- Panel de Verdad Única -->
+                                        <div class="row g-2 mb-4">
+                                            <div class="col-4">
+                                                <div
+                                                    class="p-2 rounded bg-dark border border-secondary text-center h-100 d-flex flex-column justify-content-center">
+                                                    <small class="text-white-50 d-block mb-1"
+                                                        style="font-size: 0.65rem;">TOTAL NETO</small>
+                                                    <span id="labelAuditTotalNeto" class="fw-bold text-white"
+                                                        style="font-size: 0.9rem;">$0</span>
+                                                    <span id="labelAuditIva" class="text-warning fw-bold mt-1"
+                                                        style="font-size: 0.65rem;">IVA = $0</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div
+                                                    class="p-2 rounded bg-dark border border-secondary text-center h-100 d-flex flex-column justify-content-center">
+                                                    <small class="text-white-50 d-block mb-1"
+                                                        style="font-size: 0.65rem;">TOTAL BRUTO</small>
+                                                    <span id="labelAuditTotalBruto" class="fw-bold text-info"
+                                                        style="font-size: 0.9rem;">$0</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div
+                                                    class="p-2 rounded bg-dark border border-secondary text-center h-100 d-flex flex-column justify-content-center">
+                                                    <small class="text-white-50 d-block mb-1"
+                                                        style="font-size: 0.65rem;">SALDO PENDIENTE</small>
+                                                    <span id="labelAuditSaldoRestante" class="fw-bold text-danger"
+                                                        style="font-size: 0.9rem;">$0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label text-gold small fw-bold">MONTO BRUTO EN CARTOLA
+                                                    ($) *</label>
+                                                <div class="input-group">
+                                                    <input type="number" id="auditMonto"
+                                                        class="form-control l3d-input fs-5" onwheel="this.blur()">
+                                                    <button class="btn btn-outline-info" type="button"
+                                                        onclick="window.aplicarSugerenciaPago()"
+                                                        title="Autocompletar saldo">
+                                                        <i class="fas fa-magic"></i>
+                                                    </button>
+                                                    <!-- eee -->
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label text-gold small fw-bold">REAJUSTE DE
+                                                    ADMINISTRADOR (DIFERENCIA)</label>
+                                                <input type="number" id="auditReajuste"
+                                                    class="form-control l3d-input text-warning" value="0" readonly
+                                                    onwheel="this.blur()"
+                                                    ondblclick="this.readOnly=false; this.select();">
+                                                <small class="text-muted small">Doble clic para editar
+                                                    manualmente.</small>
+                                            </div>
+
+                                            <!-- Feedback Dinámico de Liquidación -->
+                                            <div class="col-12 py-2">
+                                                <div id="auditInfo"
+                                                    class="alert mb-0 text-center fw-bold small py-2 border-0">
+                                                    Esperando ingreso de montos...
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label text-gold small fw-bold">NOTAS DE AUDITORÍA
+                                                    (OBLIGATORIO) *</label>
+                                                <textarea id="auditConcepto"
+                                                    class="form-control l3d-input text-white small" rows="2"
+                                                    placeholder="Justifica el reajuste o confirma el banco de origen..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Columna Derecha: Visor de Evidencia -->
+                                    <div
+                                        class="col-lg-7 bg-dark d-flex align-items-center justify-content-center border-start border-secondary">
+                                        <div id="visorEvidencia"
+                                            class="w-100 h-100 p-2 d-flex align-items-center justify-content-center">
+                                            <!-- El visor permanece igual -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between bg-dark">
+                                <!-- Check de Bypass (Comodín de Emergencia) -->
+                                <div class="form-check form-switch ms-2">
+                                    <input class="form-check-input" type="checkbox" id="bypassSaldoCheck"
+                                        onchange="window.toggleBypassLuis()">
+                                    <label class="form-check-label text-white-50 small" for="bypassSaldoCheck">Habilitar
+                                        despacho excepcional</label>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-secondary me-2"
+                                        data-bs-dismiss="modal">Cerrar</button>
+                                    <button type="button" id="btnConfirmarAuditoria"
+                                        class="btn btn-success px-4 fw-bold" disabled
+                                        onclick="ejecutarMotorContable('auditoria')">
+                                        <i class="fas fa-check-double me-2"></i> VALIDAR Y LIQUIDAR
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+                <script th:src="@{/js/api.js}"></script>
+                <script th:src="@{/js/main.js}"></script>
+
+
+
+                <script th:inline="javascript">
+
+                    // ==========================================
+                    // CEREBRO MATEMÁTICO: MOTOR FINANCIERO L3D
+                    // ==========================================
+
+                    // ---------------------------------------------------------
+                    // 1. EL PUENTE DEL SIDEBAR: Búsqueda manual de pedidos
+                    // ---------------------------------------------------------
+                    window.buscarPedidoParaPagoManual = async function () {
+                        const inputTracking = document.getElementById('sidebarTrackingInput');
+                        if (!inputTracking) return;
+
+                        const trackingValue = inputTracking.value.trim().toUpperCase();
+                        if (trackingValue === '') {
+                            Swal.fire({ icon: 'warning', text: 'Ingresa un código de seguimiento (Ej: LEG-XXXX).' });
+                            return;
+                        }
+
+                        Swal.fire({ title: 'Buscando Pedido...', didOpen: () => Swal.showLoading() });
+
+                        try {
+                            const response = await fetch(`/api/v1/pedidos/tracking/${trackingValue}`);
+                            if (!response.ok) throw new Error('Pedido no encontrado');
+
+                            const pedido = await response.json();
+                            Swal.close();
+
+                            if (pedido.precioFinal === 0 || trackingValue.endsWith('-G')) {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Garantía Detectada',
+                                    text: 'Este pedido tiene costo $0. No requiere registro de pago, pásalo a producción directamente.'
+                                });
+                                return;
+                            }
+
+                            abrirModalPagoManualConfigurado(
+                                pedido.id,
+                                pedido.codigoSeguimiento,
+                                pedido.precioFinal
+                            );
+
+                        } catch (error) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'No se encontró el pedido o hubo un fallo de conexión.'
+                            });
+                        }
+                    };
+
+                    // ---------------------------------------------------------
+                    // 2. APERTURA DE MODALES CON PRECARGA INTELIGENTE
+                    // ---------------------------------------------------------
+                    function abrirModalPagoManualConfigurado(id, tracking, netoTotal) {
+
+                        document.getElementById('pagoManualId').value = id;
+                        document.getElementById('pagoManualTracking').value = tracking;
+                        document.getElementById('pagoManualTotalNeto').value = netoTotal || 0;
+
+                        const brutoEsperado = netoTotal ? Math.round(netoTotal * 1.19) : 0;
+
+                        document.getElementById('pagoManualMonto').value = brutoEsperado;
+
+                        ejecutarCalculosEnVivo('manual');
+
+                        new bootstrap.Modal(
+                            document.getElementById('modalPagoManualSmall')
+                        ).show();
+                    }
+
+                    /*
+                     * NUEVA GENERACIÓN:
+                     * Soporte MULTI-COMPROBANTE
+                     * Compatible con:
+                     * - pedido.linkComprobantePago
+                     * - pedido.pagos[]
+                     * - múltiples evidencias históricas
+                     */
+                    /*
+                     * NUEVA GENERACIÓN: Soporte MULTI-COMPROBANTE con Lógica Proactiva
+                     * Refactorizado para automatizar montos y conceptos (UX Premium)
+                     */
+                    window.abrirModalAuditoria = async function (id, netoTotal, linkComprobante, tracking, pagosSize, context) {
+                        try {
+                            // RESET VISUAL COMPLETO
+                            const visor = document.getElementById('visorEvidencia');
+                            if (visor) {
+                                visor.innerHTML = `
+                <div class="text-center text-white-50 py-5">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                    <p class="mb-0">Cargando comprobantes...</p>
+                </div>
+            `;
+                            }
+
+                            // SINCRONIZACIÓN DE INPUTS BASE Y CONTEXTO
+                            document.getElementById('auditId').value = id;
+                            document.getElementById('auditId').setAttribute('data-context', context || 'audit');
+                            document.getElementById('auditTracking').value = tracking;
+
+                            const neto = parseFloat(netoTotal) || 0;
+                            const iva = Math.floor(neto * 0.19);
+                            const brutoTotal = neto + iva;
+
+                            document.getElementById('auditTotalNeto').value = neto;
+
+                            // LABELS FINANCIEROS (Formato es-CL para Luis)
+                            const labelNeto = document.getElementById('labelAuditTotalNeto');
+                            if (labelNeto) labelNeto.innerText = "$" + neto.toLocaleString('es-CL');
+
+                            const labelIva = document.getElementById('labelAuditIva');
+                            if (labelIva) labelIva.innerText = "IVA = $" + iva.toLocaleString('es-CL');
+
+                            const labelBruto = document.getElementById('labelAuditTotalBruto');
+                            if (labelBruto) labelBruto.innerText = "$" + brutoTotal.toLocaleString('es-CL');
+
+                            // LIMPIEZA DE CAMPOS DE REAJUSTE Y BYPASS
+                            const auditReajusteInput = document.getElementById('auditReajuste');
+                            if (auditReajusteInput) auditReajusteInput.value = '0';
+
+                            const bypassCheck = document.getElementById('bypassSaldoCheck');
+                            if (bypassCheck) bypassCheck.checked = false;
+
+                            Swal.fire({
+                                title: 'Cargando finanzas...',
+                                didOpen: () => Swal.showLoading(),
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            let saldoPendienteBrutoBase = brutoTotal;
+                            const resp = await fetch('/api/v1/pedidos/' + id);
+
+                            if (resp.ok) {
+                                const saldoNetoStr = resp.headers.get('X-Saldo-Pendiente');
+                                if (saldoNetoStr) {
+                                    saldoPendienteBrutoBase = Math.round(parseFloat(saldoNetoStr) * 1.19);
+                                }
+                                const dataPedido = await resp.json();
+
+                                // MOTOR MULTI-EVIDENCIA
+                                let evidencias = [];
+                                if (dataPedido.linkComprobantePago && dataPedido.linkComprobantePago.startsWith('http')) {
+                                    evidencias.push({
+                                        tipo: 'COMPROBANTE PRINCIPAL',
+                                        link: dataPedido.linkComprobantePago,
+                                        fecha: dataPedido.fechaPago
+                                    });
+                                }
+                                if (dataPedido.pagos && Array.isArray(dataPedido.pagos)) {
+                                    dataPedido.pagos.forEach((pago, index) => {
+                                        if (pago.referenciaComprobante && pago.referenciaComprobante.startsWith('http')) {
+                                            if (!evidencias.some(e => e.link === pago.referenciaComprobante)) {
+                                                evidencias.push({
+                                                    tipo: `PAGO #${index + 1}`,
+                                                    link: pago.referenciaComprobante,
+                                                    fecha: pago.fechaPago || pago.fechaRegistro,
+                                                    monto: pago.monto
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                                renderizarEvidenciasAuditoria(evidencias, id);
+                            }
+
+                            Swal.close();
+
+                            // INYECCIÓN MÁGICA DE SALDO (UX PROACTIVA)
+                            const auditMontoInput = document.getElementById('auditMonto');
+                            const auditConceptoInput = document.getElementById('auditConcepto');
+                            if (auditMontoInput) {
+                                auditMontoInput.setAttribute('data-saldo-base', saldoPendienteBrutoBase);
+                                auditMontoInput.setAttribute('data-pagos-previos', pagosSize || 0);
+                                auditMontoInput.value = ''; // REGLA: Inicia vacío para control manual
+                            }
+                            if (auditConceptoInput) {
+                                auditConceptoInput.value = '';
+                                auditConceptoInput.removeAttribute('data-manual-edit');
+                            }
+
+                            // Feedback inmediato al abrir
+                            ejecutarCalculosEnVivo('auditoria');
+
+                            new bootstrap.Modal(document.getElementById('modalAuditoriaBancaria')).show();
+
+                        } catch (error) {
+                            console.error("Error al abrir modal de auditoría:", error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error de Interfaz',
+                                text: 'Fallo al procesar los datos del pedido en el Dashboard.',
+                                background: '#000',
+                                color: '#fff'
+                            });
+                        }
+                    };
+
+                    // ---------------------------------------------------------
+                    // 3. GESTIÓN VISUAL Y SINCRONIZACIÓN DE COMPROBANTES (DRIVE)
+                    // ---------------------------------------------------------
+
+                    /*
+                     * NUEVO RENDER MULTI-EVIDENCIA
+                     */
+                    function renderizarEvidenciasAuditoria(evidencias, pedidoId) {
+
+                        const visor = document.getElementById('visorEvidencia');
+                        const context = document.getElementById('auditId').getAttribute('data-context');
+
+                        if (!visor) return;
+
+                        if (!evidencias || evidencias.length === 0) {
+
+                            visor.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-cloud-upload-alt fa-3x mb-3 opacity-50"></i>
+                <p class="mb-0">No hay evidencias cargadas.</p>
+            </div>
+        `;
+
+                            return;
+                        }
+
+                        let html = `
+        <div class="d-flex flex-column gap-3">
+    `;
+
+                        evidencias.forEach((evidencia, index) => {
+
+                            const proxyUrl =
+                                `/api/v1/pedidos/ver-comprobante?link=${encodeURIComponent(evidencia.link)}`;
+
+                            html += `
+            <div class="card bg-black border border-secondary shadow-sm">
+
+                <div class="card-header d-flex justify-content-between align-items-center">
+
+                    <div>
+                        <span class="badge bg-danger me-2">
+                            ${index + 1}
+                        </span>
+
+                        <span class="fw-bold text-info">
+                            ${(() => {
+                                    let t = evidencia.tipo;
+                                    if (context === 'bandeja1') return "Validación de Abono";
+                                    if (context === 'bandeja3' && (t === 'COMPROBANTE PRINCIPAL' || index === evidencias.length - 1)) return "Evidencia de Pago Final";
+                                    return t;
+                                })()}
+                        </span>
+                    </div>
+
+                    <div class="small text-white-50">
+                        ${evidencia.fecha ? evidencia.fecha : ''}
+                    </div>
+
+                </div>
+
+                <div class="card-body text-center">
+
+                    <img
+                        src="${proxyUrl}"
+                        class="img-fluid rounded border border-secondary shadow-lg mb-3"
+                        style="max-height: 360px; object-fit: contain; cursor: zoom-in;"
+                        onclick="window.open('${evidencia.link}', '_blank')"
+                    >
+
+                    <div class="d-flex justify-content-center flex-wrap gap-2">
+
+                        <a
+                            href="${evidencia.link}"
+                            target="_blank"
+                            class="btn btn-sm btn-outline-info fw-bold"
+                        >
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            ABRIR ORIGINAL
+                        </a>
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-success fw-bold"
+                            onclick="window.descargarEvidenciaVisual(${pedidoId}, ${index})"
+                        >
+                            <i class="fas fa-download me-1"></i>
+                            DESCARGAR
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+                        });
+
+                        html += `</div>`;
+
+                        visor.innerHTML = html;
+                    }
+
+                    /*
+                     * NUEVO MOTOR DE DESCARGA
+                     * Usa el endpoint nuevo unificado
+                     */
+                    window.descargarEvidenciaVisual = function (pedidoId, indicePago) {
+
+                        const iframe = document.createElement('iframe');
+
+                        iframe.style.display = 'none';
+
+                        iframe.src =
+                            `/api/v1/pedidos/${pedidoId}/descargar-pago?indice=${indicePago}`;
+
+                        document.body.appendChild(iframe);
+
+                        setTimeout(() => {
+                            iframe.remove();
+                        }, 5000);
+                    };
+
+                    /*
+                     * COMPAT LEGACY
+                     * Mantiene compatibilidad con código antiguo
+                     */
+                    function actualizarVisorAuditoria(link) {
+
+                        if (!link || !link.startsWith('http')) {
+
+                            renderizarEvidenciasAuditoria([], 0);
+
+                            return;
+                        }
+
+                        renderizarEvidenciasAuditoria([
+                            {
+                                tipo: 'COMPROBANTE',
+                                link: link
+                            }
+                        ], 0);
+                    }
+
+                    async function reemplazarSoloComprobante() {
+
+                        const fileInput = document.getElementById('auditFile');
+                        const tracking = document.getElementById('auditTracking').value;
+                        const btn = document.getElementById('btnSyncComprobante');
+                        const icon = document.getElementById('iconSync');
+
+                        if (!fileInput.files || fileInput.files.length === 0) {
+
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Atención',
+                                text: 'Por favor, selecciona un archivo antes de sincronizar.'
+                            });
+
+                            return;
+                        }
+
+                        const result = await Swal.fire({
+                            title: '¿Sincronizar Evidencia?',
+                            text: "Esto reemplazará el comprobante actual en el sistema por el nuevo archivo seleccionado.",
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#F2C05F',
+                            cancelButtonColor: '#333',
+                            confirmButtonText: 'Sí, sincronizar',
+                            cancelButtonText: 'Cancelar',
+                            background: '#000',
+                            color: '#fff'
+                        });
+
+                        if (result.isConfirmed) {
+
+                            btn.disabled = true;
+                            icon.className = 'fas fa-spinner fa-spin';
+
+                            const formData = new FormData();
+                            formData.append('archivo', fileInput.files[0]);
+
+                            try {
+
+                                const response = await fetch(
+                                    `/api/v1/pedidos/${tracking}/comprobante-pago`,
+                                    {
+                                        method: 'POST',
+                                        body: formData
+                                    }
+                                );
+
+                                if (!response.ok) {
+                                    throw new Error('Error al subir el archivo');
+                                }
+
+                                const data = await response.json();
+
+                                actualizarVisorAuditoria(data.url);
+
+                                fileInput.value = '';
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Sincronizado',
+                                    text: 'La evidencia ha sido actualizada en la nube y vinculada al pedido.',
+                                    background: '#000',
+                                    color: '#fff'
+                                });
+
+                            } catch (error) {
+
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Fallo de Sincronización',
+                                    text: error.message,
+                                    background: '#000',
+                                    color: '#fff'
+                                });
+
+                            } finally {
+
+                                btn.disabled = false;
+                                icon.className = 'fas fa-sync-alt';
+                            }
+                        }
+                    }
+
+                    // ---------------------------------------------------------
+                    // 4. EVENT LISTENERS EN VIVO Y CÁLCULOS DINÁMICOS
+                    // ---------------------------------------------------------
+                    document.getElementById('pagoManualMonto').addEventListener(
+                        'input',
+                        () => ejecutarCalculosEnVivo('manual')
+                    );
+
+                    document.getElementById('auditMonto').addEventListener(
+                        'input',
+                        () => ejecutarCalculosEnVivo('auditoria')
+                    );
+
+                    if (document.getElementById('auditReajuste')) {
+
+                        document.getElementById('auditReajuste').addEventListener(
+                            'input',
+                            () => ejecutarCalculosEnVivo('auditoria')
+                        );
+                    }
+
+                    function ejecutarCalculosEnVivo(tipo) {
+                        const prefijo = (tipo === 'manual') ? 'pagoManual' : 'audit';
+                        const inputMonto = document.getElementById(prefijo + 'Monto');
+                        const inputConcepto = document.getElementById(prefijo + 'Concepto');
+                        const infoDiv = document.getElementById(prefijo + 'Info');
+                        const btnConfirmar = document.getElementById(tipo === 'manual' ? 'btnConfirmarPagoManual' : 'btnConfirmarAuditoria');
+
+                        const montoIngresado = parseFloat(inputMonto.value) || 0;
+                        const netoTotal = parseFloat(document.getElementById(prefijo + 'TotalNeto').value) || 0;
+                        const brutoEsperado = Math.round(netoTotal * 1.19);
+
+                        // Determinación de la base de cálculo (Saldo Restante vs Total Bruto)
+                        const saldoBase = (tipo === 'auditoria')
+                            ? (parseFloat(inputMonto.getAttribute('data-saldo-base')) || brutoEsperado)
+                            : brutoEsperado;
+
+                        // Reset si no hay monto
+                        if (montoIngresado <= 0) {
+                            if (infoDiv) {
+                                infoDiv.innerHTML = 'Esperando ingreso de montos...';
+                                infoDiv.className = 'alert mb-0 text-center fw-bold small py-2 border-0 text-white-50';
+                            }
+                            if (inputConcepto) inputConcepto.value = '';
+                            if (btnConfirmar) btnConfirmar.disabled = true;
+                            return;
+                        }
+
+                        const reajuste = (tipo === 'auditoria' && document.getElementById('auditReajuste'))
+                            ? (parseFloat(document.getElementById('auditReajuste').value) || 0)
+                            : 0;
+
+                        const saldoRestanteFinal = saldoBase - (montoIngresado + reajuste);
+                        const porcentaje = Math.min(100, ((montoIngresado / saldoBase) * 100)).toFixed(1);
+
+                        // Actualización de Etiquetas de Saldo (Solo Auditoría)
+                        if (tipo === 'auditoria') {
+                            const labelSaldo = document.getElementById('labelAuditSaldoRestante');
+                            if (labelSaldo) {
+                                labelSaldo.innerText = `$${saldoRestanteFinal.toLocaleString('es-CL')}`;
+                                labelSaldo.className = (saldoRestanteFinal > 5) ? "fw-bold text-danger fs-5" : "fw-bold text-success fs-5";
+                            }
+                        }
+
+                        // LÓGICA DE SEMÁFORO Y NOTAS INTELIGENTES (CONTEXT-AWARE)
+                        const isManual = inputConcepto && inputConcepto.getAttribute('data-manual-edit') === 'true';
+                        const context = document.getElementById('auditId').getAttribute('data-context') || 'manual';
+                        const pagosPrevios = parseInt(inputMonto.getAttribute('data-pagos-previos')) || 0;
+
+                        if (Math.abs(saldoRestanteFinal) <= 5) {
+                            // ESTADO TOTAL (alert-success)
+                            if (infoDiv) {
+                                infoDiv.innerHTML = '<i class="fas fa-check-circle me-1"></i> PAGO TOTAL (100%)';
+                                infoDiv.className = "alert alert-success py-1 small fw-bold mb-0 mt-2";
+                            }
+                            if (inputConcepto && !isManual) {
+                                inputConcepto.value = (context === 'bandeja3') ? 'Comprobante de Pago Final' : 'Pago Final / Liquidación (100%)';
+                                if (context === 'manual') inputConcepto.value = 'Liquidación (100%)';
+                            }
+                            if (btnConfirmar) btnConfirmar.disabled = false;
+
+                        } else if (saldoRestanteFinal > 5) {
+                            // ESTADO ABONO (alert-warning)
+                            if (infoDiv) {
+                                infoDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ABONO DEL ${porcentaje}% (Falta: $${saldoRestanteFinal.toLocaleString('es-CL')})`;
+                                infoDiv.className = "alert alert-warning py-1 small fw-bold mb-0 mt-2 text-dark";
+                            }
+                            if (inputConcepto && !isManual) {
+                                if (context === 'bandeja1') inputConcepto.value = 'Validación de Abono';
+                                else if (pagosPrevios === 0) inputConcepto.value = 'Comprobante de Abono Inicial';
+                                else inputConcepto.value = `${porcentaje}% de abono`;
+
+                                if (context === 'manual' && inputConcepto.value.includes('abono')) inputConcepto.value = 'Abono';
+                            }
+
+                            if (btnConfirmar) {
+                                const bypass = document.getElementById('bypassSaldoCheck');
+                                btnConfirmar.disabled = (!bypass || !bypass.checked);
+                            }
+                        } else {
+                            // ESTADO EXCEDENTE (alert-info)
+                            if (infoDiv) {
+                                infoDiv.innerHTML = `<i class="fas fa-info-circle me-1"></i> EXCEDENTE: +$${Math.abs(saldoRestanteFinal).toLocaleString('es-CL')}`;
+                                infoDiv.className = "alert alert-info py-1 small fw-bold mb-0 mt-2";
+                            }
+                            if (inputConcepto && !isManual) inputConcepto.value = `${porcentaje}% de abono (Excedente)`;
+                            if (btnConfirmar) btnConfirmar.disabled = false;
+                        }
+                    }
+                    // ---------------------------------------------------------
+                    // 5. MOTOR CONTABLE: CONFIRMACIÓN, PERSISTENCIA Y DESCARGA SEGURA
+                    // ---------------------------------------------------------
+                    window.ejecutarMotorContable = async function (tipo) {
+
+                        const prefijo = tipo === 'manual'
+                            ? 'pagoManual'
+                            : 'audit';
+
+                        const id =
+                            document.getElementById(prefijo + 'Id').value;
+
+                        const montoBruto =
+                            parseFloat(
+                                document.getElementById(prefijo + 'Monto').value
+                            ) || 0;
+
+                        const totalNeto =
+                            parseFloat(
+                                document.getElementById(prefijo + 'TotalNeto').value
+                            ) || 0;
+
+                        const metodoInput =
+                            document.getElementById(prefijo + 'Metodo');
+
+                        const conceptoInput =
+                            document.getElementById(prefijo + 'Concepto');
+
+                        const fileInput =
+                            document.getElementById(prefijo + 'File');
+
+                        const metodo =
+                            metodoInput
+                                ? metodoInput.value
+                                : 'Transferencia Bancaria';
+
+                        const concepto =
+                            conceptoInput
+                                ? conceptoInput.value
+                                : 'Pago Manual Directo';
+
+                        if (montoBruto <= 0) {
+
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Monto requerido',
+                                text: 'Ingresa un monto bruto válido antes de confirmar.',
+                                confirmButtonColor: '#F2C05F',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            return;
+                        }
+
+                        const brutoEsperado =
+                            Math.round(totalNeto * 1.19);
+
+                        const porcentaje =
+                            brutoEsperado > 0
+                                ? Math.round((montoBruto / brutoEsperado) * 100)
+                                : 0;
+
+                        /*
+                         * Advertencia de pago parcial.
+                         * Se mantiene principalmente para el flujo manual.
+                         */
+                        if (porcentaje < 99 && tipo === 'manual') {
+
+                            const confirmacion = await Swal.fire({
+                                title: 'Atención: Pago Parcial',
+                                html: `
+                Monto:
+                <b>$${montoBruto.toLocaleString('es-CL')}</b>
+                (Abono del ${porcentaje}%).
+                <br>
+                ¿Confirmas esta operación?
+            `,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'SÍ, REGISTRAR ABONO',
+                                cancelButtonText: 'CANCELAR',
+                                confirmButtonColor: '#F2C05F',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            if (!confirmacion.isConfirmed) {
+                                return;
+                            }
+                        }
+
+                        /*
+                         * Conversión bruto -> neto.
+                         *
+                         * IMPORTANTE:
+                         * - Si hay archivo:
+                         *   el backend /pago-manual recibe NETO.
+                         * - El backend es la verdad financiera.
+                         */
+                        const montoNetoAGuardar =
+                            Math.round(montoBruto / 1.19);
+
+                        const hayArchivo =
+                            fileInput &&
+                            fileInput.files &&
+                            fileInput.files.length > 0;
+
+                        Swal.fire({
+                            title: 'Procesando...',
+                            text: 'Registrando pago y preparando respaldo.',
+                            allowOutsideClick: false,
+                            background: '#000',
+                            color: '#fff',
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        try {
+
+                            // -------------------------------------------------
+                            // FORM DATA MULTIPART
+                            // -------------------------------------------------
+                            const formData = new FormData();
+
+                            formData.append('monto', montoNetoAGuardar);
+                            formData.append('metodoPago', metodo);
+                            formData.append('concepto', concepto);
+
+                            if (hayArchivo) {
+                                formData.append(
+                                    'evidencia',
+                                    fileInput.files[0]
+                                );
+                            }
+
+                            // -------------------------------------------------
+                            // ENDPOINT UNIFICADO
+                            // -------------------------------------------------
+                            const url =
+                                `/api/v1/pedidos/${id}/pago-manual`;
+
+                            const opts = {
+                                method: 'POST',
+                                body: formData
+                            };
+
+                            const resp = await fetch(url, opts);
+
+                            if (!resp.ok) {
+
+                                const errorTexto = await resp.text();
+
+                                throw new Error(
+                                    errorTexto || 'Fallo en la base de datos'
+                                );
+                            }
+
+                            /*
+                             * Intentamos obtener respuesta JSON enriquecida
+                             * con evidencias múltiples.
+                             */
+                            let dataRespuesta = null;
+
+                            try {
+                                dataRespuesta = await resp.json();
+                            } catch (_) {
+                                dataRespuesta = null;
+                            }
+
+                            // -------------------------------------------------
+                            // DESBLOQUEO VISUAL EN BANDEJA 3
+                            // -------------------------------------------------
+                            if (tipo === 'auditoria') {
+
+                                const btnDespachoEnTabla =
+                                    document.getElementById(
+                                        'btnDespacho-' + id
+                                    );
+
+                                const reajuste =
+                                    parseFloat(
+                                        document.getElementById('auditReajuste')
+                                            ? document.getElementById('auditReajuste').value
+                                            : 0
+                                    ) || 0;
+
+                                const bypass =
+                                    document.getElementById('bypassSaldoCheck')
+                                        ? document.getElementById('bypassSaldoCheck').checked
+                                        : false;
+
+                                if (
+                                    Math.abs(
+                                        brutoEsperado - (montoBruto + reajuste)
+                                    ) <= 5
+                                    || bypass
+                                ) {
+
+                                    if (btnDespachoEnTabla) {
+
+                                        btnDespachoEnTabla.disabled = false;
+
+                                        btnDespachoEnTabla.className =
+                                            "btn btn-sm btn-action-prod btn-action-blue fw-bold";
+
+                                        btnDespachoEnTabla.innerHTML =
+                                            '<i class="fas fa-paper-plane me-1"></i> Despachar';
+                                    }
+                                }
+                            }
+
+                            /*
+                             * REFRESCO VISUAL DE EVIDENCIAS
+                             * SIN RECARGAR TODAVÍA
+                             */
+                            if (
+                                dataRespuesta &&
+                                dataRespuesta.evidencias &&
+                                Array.isArray(dataRespuesta.evidencias)
+                            ) {
+
+                                renderizarEvidenciasAuditoria(
+                                    dataRespuesta.evidencias,
+                                    id
+                                );
+                            }
+
+                            /*
+                             * DESCARGA SEGURA:
+                             * - Primero Luis presiona ENTENDIDO
+                             * - Luego descargamos
+                             * - Después recién recargamos
+                             */
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Contabilizado',
+                                html: tipo === 'auditoria'
+                                    ? `
+                    El pago fue registrado correctamente.
+                    <br><br>
+                    Al presionar <b>ENTENDIDO</b>:
+                    <br>
+                    1. Se descargará el comprobante
+                    <br>
+                    2. Luego se actualizará el Dashboard
+                `
+                                    : `
+                    El pago fue registrado correctamente.
+                `,
+                                confirmButtonText: 'ENTENDIDO',
+                                confirmButtonColor: '#10b981',
+                                background: '#000',
+                                color: '#fff'
+                            }).then(async () => {
+
+                                /*
+                                 * SOLO AUDITORÍA
+                                 */
+                                if (tipo === 'auditoria') {
+
+                                    try {
+
+                                        /*
+                                         * NUEVO ENDPOINT:
+                                         * /descargar-pago
+                                         *
+                                         * Descarga el último comprobante
+                                         * o el más reciente registrado.
+                                         */
+                                        const iframe =
+                                            document.createElement('iframe');
+
+                                        iframe.style.display = 'none';
+
+                                        iframe.src =
+                                            `/api/v1/pedidos/${id}/descargar-pago`;
+
+                                        document.body.appendChild(iframe);
+
+                                        /*
+                                         * Esperamos suficiente tiempo
+                                         * para que el navegador dispare
+                                         * realmente la descarga.
+                                         */
+                                        setTimeout(() => {
+                                            location.reload();
+                                        }, 2500);
+
+                                    } catch (e) {
+
+                                        console.error(
+                                            'Error iniciando descarga:',
+                                            e
+                                        );
+
+                                        location.reload();
+                                    }
+
+                                } else {
+
+                                    location.reload();
+                                }
+                            });
+
+                        } catch (e) {
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error al registrar pago',
+                                text: e.message,
+                                confirmButtonColor: '#d33',
+                                background: '#000',
+                                color: '#fff'
+                            });
+                        }
+                    };
+
+                    // ---------------------------------------------------------
+                    // 6. VALIDACIÓN FINAL: TRANSICIÓN A PRODUCCIÓN
+                    // ---------------------------------------------------------
+                    window.validarPasoAProduccion = async function (
+                        id,
+                        btnElement
+                    ) {
+
+                        /*
+                         * REGLA DE NEGOCIO REAL:
+                         * Luis SI puede producir con saldo.
+                         * El sistema solo advierte.
+                         */
+
+                        if (
+                            btnElement &&
+                            btnElement.getAttribute('data-autorizado') === 'true'
+                        ) {
+
+                            Swal.fire({
+                                title: 'Procesando...',
+                                allowOutsideClick: false,
+                                background: '#000',
+                                color: '#fff',
+                                didOpen: () => Swal.showLoading()
+                            });
+
+                            confirmarAvanceProduccion(id, false);
+
+                            return;
+                        }
+
+                        Swal.fire({
+                            title: 'Auditando Balance...',
+                            allowOutsideClick: false,
+                            background: '#000',
+                            color: '#fff',
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        try {
+
+                            const resp =
+                                await fetch('/api/v1/pedidos/' + id);
+
+                            if (!resp.ok) {
+                                throw new Error('Error de conexión');
+                            }
+
+                            const saldoNetoStr =
+                                resp.headers.get('X-Saldo-Pendiente');
+
+                            if (!saldoNetoStr) {
+                                throw new Error('Saldo no disponible');
+                            }
+
+                            const saldoNeto =
+                                parseFloat(saldoNetoStr);
+
+                            const pedido =
+                                await resp.json();
+
+                            const netoPactado =
+                                parseFloat(pedido.precioFinal) || 0;
+
+                            const metaBrutaTotal =
+                                Math.round(netoPactado * 1.19);
+
+                            const saldoBrutoPendiente =
+                                Math.round(saldoNeto * 1.19);
+
+                            const pagadoBrutoReal =
+                                metaBrutaTotal - saldoBrutoPendiente;
+
+                            let configModal = {};
+
+                            /*
+                             * CASO 1:
+                             * SALDO PENDIENTE
+                             * (NO BLOQUEA PRODUCCIÓN)
+                             */
+                            if (saldoBrutoPendiente > 5) {
+
+                                configModal = {
+                                    title: '⚠️ PRODUCCIÓN CON SALDO PENDIENTE',
+                                    html: `
+                    Abonado:
+                    <b>$${pagadoBrutoReal.toLocaleString('es-CL')}</b>
+                    <br>
+                    Falta por pagar:
+                    <b class="text-warning">
+                        $${saldoBrutoPendiente.toLocaleString('es-CL')}
+                    </b>
+                    <br><br>
+                    El sistema permitirá avanzar bajo
+                    responsabilidad administrativa.
+                `,
+                                    icon: 'warning',
+                                    confirmButtonText: 'ACEPTAR Y PRODUCIR',
+                                    confirmButtonColor: '#f59e0b'
+                                };
+
+                                /*
+                                 * CASO 2:
+                                 * SOBREPAGO
+                                 */
+                            } else if (saldoBrutoPendiente < -5) {
+
+                                configModal = {
+                                    title: '❌ SOBREPAGO DETECTADO',
+                                    html: `
+                    Se registraron pagos por:
+                    <b>$${pagadoBrutoReal.toLocaleString('es-CL')}</b>
+                    <br>
+                    Existe un excedente de:
+                    <b class="text-info">
+                        $${Math.abs(saldoBrutoPendiente).toLocaleString('es-CL')}
+                    </b>
+                `,
+                                    icon: 'error',
+                                    confirmButtonText: 'PRODUCIR Y REVISAR DESPUÉS',
+                                    confirmButtonColor: '#d33'
+                                };
+
+                                /*
+                                 * CASO 3:
+                                 * PAGO TOTAL
+                                 */
+                            } else {
+
+                                configModal = {
+                                    title: '✅ PAGO TOTAL DETECTADO',
+                                    html: `
+                    Monto Validado:
+                    <b>$${pagadoBrutoReal.toLocaleString('es-CL')}</b>
+                    <br><br>
+                    ¿Confirmas el inicio de la fabricación?
+                `,
+                                    icon: 'success',
+                                    confirmButtonText: 'SÍ, EMPEZAR',
+                                    confirmButtonColor: '#10b981'
+                                };
+                            }
+
+                            const result = await Swal.fire({
+                                ...configModal,
+                                showCancelButton: true,
+                                cancelButtonText: 'CANCELAR',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            /*
+                             * IMPORTANTE:
+                             * Se permite producción incluso con deuda.
+                             */
+                            if (result.isConfirmed) {
+
+                                btnElement.setAttribute(
+                                    'data-autorizado',
+                                    'true'
+                                );
+
+                                btnElement.innerHTML =
+                                    '<i class="fas fa-check-double me-1"></i> CONFIRMAR PRODUCCIÓN';
+
+                                btnElement.className =
+                                    'btn btn-warning text-dark fw-bold border border-white';
+
+                                Swal.close();
+
+                            } else {
+
+                                btnElement.removeAttribute(
+                                    'data-autorizado'
+                                );
+                            }
+
+                        } catch (e) {
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Fallo de Auditoría',
+                                text: e.message,
+                                confirmButtonColor: '#d33',
+                                background: '#000',
+                                color: '#fff'
+                            });
+                        }
+                    };
+
+                    async function confirmarAvanceProduccion(
+                        id,
+                        aplicarAjuste
+                    ) {
+
+                        const resp = await fetch(
+                            '/api/v1/pedidos/' + id + '/estado',
+                            {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    nuevoEstado: 'EN_PRODUCCION',
+                                    mensajeTriage: aplicarAjuste
+                                        ? 'Producción autorizada con ajuste administrativo.'
+                                        : 'Producción autorizada correctamente.'
+                                })
+                            }
+                        );
+
+                        if (resp.ok) {
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡A Máquinas!',
+                                text: 'El pedido ha sido movido a la cola de impresión.',
+                                timer: 2000,
+                                background: '#000',
+                                color: '#fff'
+                            }).then(() => location.reload());
+                        }
+                    }
+
+                    // ---------------------------------------------------------
+                    // 7. HERRAMIENTAS DE UX Y SEGURIDAD (VARITA Y SCROLL)
+                    // ---------------------------------------------------------
+                    window.aplicarSugerenciaPago = function () {
+
+                        const inputMonto =
+                            document.getElementById('auditMonto');
+
+                        if (inputMonto) {
+
+                            /*
+                             * La varita mágica sugiere exactamente
+                             * el saldo pendiente restante.
+                             */
+                            const saldoRestante =
+                                parseFloat(
+                                    inputMonto.getAttribute('data-saldo-base')
+                                ) || 0;
+
+                            inputMonto.value =
+                                saldoRestante > 0
+                                    ? saldoRestante
+                                    : 0;
+
+                            ejecutarCalculosEnVivo('auditoria');
+                        }
+
+                        const icon =
+                            document.querySelector('.fa-magic');
+
+                        if (icon) {
+
+                            icon.classList.add('fa-spin');
+
+                            setTimeout(() => {
+                                icon.classList.remove('fa-spin');
+                            }, 500);
+                        }
+                    };
+
+                    window.toggleBypassLuis = function () {
+
+                        const isChecked =
+                            document.getElementById(
+                                'bypassSaldoCheck'
+                            ).checked;
+
+                        const btnConfirmar =
+                            document.getElementById(
+                                'btnConfirmarAuditoria'
+                            );
+
+                        const notas =
+                            document.getElementById(
+                                'auditConcepto'
+                            );
+
+                        if (isChecked) {
+
+                            Swal.fire({
+                                title: '¿Activar Despacho Excepcional?',
+                                text: `
+                Esto permitirá liquidar el pedido
+                sin saldo o Con algún abono.
+
+                Deberás justificarlo obligatoriamente
+                en las notas.
+            `,
+                                icon: 'warning',
+                                confirmButtonColor: '#f59e0b',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            if (notas) {
+
+                                notas.placeholder =
+                                    "JUSTIFICACIÓN OBLIGATORIA PARA DESPACHO EXCEPCIONAL...";
+                            }
+
+                            if (btnConfirmar) {
+                                btnConfirmar.disabled = false;
+                            }
+
+                        } else {
+
+                            if (notas) {
+
+                                notas.placeholder =
+                                    "Justifica el reajuste o confirma el banco de origen...";
+                            }
+
+                            ejecutarCalculosEnVivo('auditoria');
+                        }
+                    };
+
+                    window.abrirModalDespachar = function (
+                        id,
+                        tracking
+                    ) {
+
+                        const spanTracking =
+                            document.getElementById(
+                                'span-despachar-tracking'
+                            );
+
+                        if (spanTracking) {
+                            spanTracking.innerText = tracking;
+                        }
+
+                        const modalElement =
+                            document.getElementById('modalDespachar');
+
+                        if (modalElement) {
+                            modalElement.setAttribute(
+                                'data-pedido-id',
+                                id
+                            );
+                        }
+
+                        new bootstrap.Modal(
+                            document.getElementById('modalDespachar')
+                        ).show();
+                    };
+
+                    document.addEventListener(
+                        "DOMContentLoaded",
+                        function () {
+
+                            const inputsNumericos = [
+                                'auditMonto',
+                                'auditReajuste',
+                                'pagoManualMonto'
+                            ];
+
+                            inputsNumericos.forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    el.addEventListener('wheel', function (e) {
+                                        e.preventDefault();
+                                        this.blur();
+                                    });
+                                }
+                            });
+
+                            // Listeners para detectar edición manual de notas
+                            ['auditConcepto', 'pagoManualConcepto'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    el.addEventListener('input', () => {
+                                        el.setAttribute('data-manual-edit', 'true');
+                                    });
+                                }
+                            });
+                        }
+                    );
+
+                    // ---------------------------------------------------------
+                    // 8. LOGÍSTICA FINAL: GESTIÓN DE DESPACHO Y ENTREGA
+                    // ---------------------------------------------------------
+
+                    /**
+                     * Función dinámica para mostrar/ocultar campos
+                     * según el método elegido.
+                     */
+                    window.cambiarCamposDespacho = function () {
+
+                        const metodo =
+                            document.getElementById(
+                                'selectMetodoDespacho'
+                            ).value;
+
+                        const bloqueFisico =
+                            document.getElementById(
+                                'bloqueFisico'
+                            );
+
+                        const bloqueDigital =
+                            document.getElementById(
+                                'bloqueDigital'
+                            );
+
+                        if (
+                            metodo === 'STARKEN'
+                            || metodo === 'MIXTO'
+                        ) {
+
+                            bloqueFisico.classList.remove(
+                                'd-none'
+                            );
+
+                        } else {
+
+                            bloqueFisico.classList.add(
+                                'd-none'
+                            );
+                        }
+
+                        if (
+                            metodo === 'DIGITAL'
+                            || metodo === 'MIXTO'
+                        ) {
+
+                            bloqueDigital.classList.remove(
+                                'd-none'
+                            );
+
+                        } else {
+
+                            bloqueDigital.classList.add(
+                                'd-none'
+                            );
+                        }
+                    };
+
+                    /**
+                     * Ejecuta el cierre final,
+                     * captura links y despacha.
+                     */
+                    window.ejecutarDespacho = async function (
+                        btn
+                    ) {
+
+                        const id =
+                            document.getElementById('modalDespachar')
+                                .getAttribute('data-pedido-id');
+
+                        const metodo =
+                            document.getElementById(
+                                'selectMetodoDespacho'
+                            ).value;
+
+                        const trackingLink =
+                            document.getElementById(
+                                'inputTrackingLink'
+                            ).value.trim();
+
+                        const digitalLink =
+                            document.getElementById(
+                                'inputDigitalLink'
+                            ).value.trim();
+
+                        if (!id) {
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'No se encontró el ID del pedido.',
+                                confirmButtonColor: '#d33',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            return;
+                        }
+
+                        if (
+                            (metodo === 'STARKEN' || metodo === 'MIXTO')
+                            && trackingLink === ''
+                        ) {
+
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Atención',
+                                text: 'Debes ingresar el Link de Seguimiento de Starken o Chilexpress.',
+                                confirmButtonColor: '#F2C05F',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            return;
+                        }
+
+                        if (
+                            (metodo === 'DIGITAL' || metodo === 'MIXTO')
+                            && digitalLink === ''
+                        ) {
+
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Atención',
+                                text: 'Debes ingresar el Enlace de Drive con los archivos.',
+                                confirmButtonColor: '#F2C05F',
+                                background: '#000',
+                                color: '#fff'
+                            });
+
+                            return;
+                        }
+
+                        let linkFinal = "";
+
+                        if (metodo === 'STARKEN') {
+
+                            linkFinal = trackingLink;
+
+                        } else if (metodo === 'DIGITAL') {
+
+                            linkFinal = digitalLink;
+
+                        } else if (metodo === 'MIXTO') {
+
+                            linkFinal =
+                                trackingLink + " | " + digitalLink;
+
+                        } else if (metodo === 'RETIRO') {
+
+                            linkFinal =
+                                "Retiro Presencial Coordinado";
+                        }
+
+                        Swal.fire({
+                            title: 'Cerrando Expediente...',
+                            allowOutsideClick: false,
+                            background: '#000',
+                            color: '#fff',
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        try {
+
+                            const resp = await fetch(
+                                `/api/v1/pedidos/${id}/despachar`,
+                                {
+                                    method: 'PATCH',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        metodoEntregaReal: metodo,
+                                        linkComprobanteEnvio: linkFinal,
+                                        nuevoEstado: 'ENTREGADO'
+                                    })
+                                }
+                            );
+
+                            if (!resp.ok) {
+
+                                throw new Error(
+                                    'Fallo al registrar el despacho en la base de datos.'
+                                );
+                            }
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Despacho Confirmado!',
+                                text: `
+                El ciclo se ha cerrado con éxito.
+                El cliente lo verá en su portal.
+            `,
+                                timer: 2500,
+                                background: '#000',
+                                color: '#fff'
+                            }).then(() => location.reload());
+
+                        } catch (error) {
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error de Conexión',
+                                text: error.message,
+                                confirmButtonColor: '#d33',
+                                background: '#000',
+                                color: '#fff'
+                            });
+                        }
+                    };
+                </script>
+
+</body>
+
+</html>

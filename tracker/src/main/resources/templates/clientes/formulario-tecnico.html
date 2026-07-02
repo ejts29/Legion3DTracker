@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario Técnico | Legión 3D</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+
+    <!--
+      LEGIÓN 3D TRACKER : VISTA DE FORMULARIO TÉCNICO (ETAPA 3)
+      A nivel de arquitectura frontend, este archivo no es solo una página web estática. 
+      Es la interfaz clave y la cara visible de nuestra "Etapa 3". Actúa como el puente 
+      interactivo donde el cliente ingresa toda la carga pesada de requerimientos 
+      (medidas exactas, materiales, tolerancias) que Luis necesita para armar un presupuesto.
+      
+      Declaramos el motor de plantillas Thymeleaf en la raíz del documento (xmlns:th) 
+      porque esto nos permite inyectar datos de forma dinámica desde nuestro servidor 
+      en Spring Boot. Así garantizamos que el formulario sea inteligente, validando 
+      rutas y mostrando el código de seguimiento correcto para cada usuario.
+    -->
+
+    <style>
+        :root {
+            --gold: #F2C05F;
+            /* Color dorado vibrante para acentos y títulos */
+            --dark-bg: #0a0a0a;
+            /* Fondo oscuro profundo para toda la página */
+            --input-bg: #111111;
+            /* Fondo para inputs */
+            --border-color: #2a2a2a;
+            /* Color de borde para inputs */
+            --text-main: #e0e0e0;
+            /* Color de texto principal */
+            --text-muted: #888888;
+            /* Color de texto secundario */
+            --white-pure: #FFFFFF;
+            /* Blanco puro */
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            /* Fondo oscuro para toda la página */
+            color: var(--text-main);
+            /* Color de texto principal */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Tipografía moderna y legible */
+        }
+
+        .form-container {
+            max-width: 800px;
+            /* Ancho máximo para mantener el formulario compacto y fácil de leer */
+            margin: 0 auto;
+            /* Centrar horizontalmente */
+            padding: 40px 20px;
+            /* Espaciado generoso para evitar sensación de amontonamiento */
+        }
+
+        /* Estilos de Texto */
+        .text-white-pure {
+            /* Para textos que necesitan destacar sobre el fondo oscuro */
+            color: var(--white-pure) !important;
+            /* Blanco puro para máxima legibilidad */
+        }
+
+        .text-gold {
+            color: var(--gold) !important;
+            /* Color dorado para destacar elementos importantes como el código de seguimiento */
+        }
+
+        /* Títulos y Secciones */
+        h1 {
+            font-weight: 700;
+            /* Título principal con peso fuerte */
+            font-size: 2rem;
+            /* Tamaño grande para destacar */
+            margin-bottom: 20px;
+            /* Espacio debajo del título */
+        }
+
+        .info-box {
+            border-left: 3px solid var(--gold);
+            /* Barra lateral dorada para destacar la información importante */
+            background: #141414;
+            /* Fondo ligeramente más claro para diferenciar del fondo general */
+            padding: 15px 20px;
+            /* Espaciado interno para comodidad de lectura */
+            font-size: 0.85rem;
+            /* Tamaño de fuente ligeramente reducido para el texto informativo */
+            margin-bottom: 30px;
+            /* Espacio debajo de la caja de información */
+        }
+
+        .section-title {
+            color: var(--gold);
+            /* Color dorado para los títulos de sección */
+            font-size: 0.75rem;
+            /* Tamaño pequeño para los títulos de sección */
+            font-weight: 700;
+            /* Peso fuerte para destacar las secciones */
+            text-transform: uppercase;
+            /* Mayúsculas para los títulos de sección */
+            letter-spacing: 1px;
+            /* Espaciado entre letras para un look más técnico */
+            margin: 40px 0 15px 0;
+            /* Espaciado antes y después del título de sección */
+            border-bottom: 1px solid var(--border-color);
+            /* Línea debajo del título para separar visualmente las secciones */
+            padding-bottom: 5px;
+            /* Espacio entre el texto del título y la línea inferior */
+        }
+
+        /* Inputs y Selects */
+        .form-label {
+            /* Estilo para las etiquetas de los campos del formulario */
+            font-weight: 600;
+            /* Peso fuerte para destacar las etiquetas */
+            font-size: 0.9rem;
+            /* Tamaño de fuente para las etiquetas */
+            margin-bottom: 8px;
+            /* Espacio debajo de las etiquetas */
+        }
+
+        .form-label span.req {
+            /* Estilo para el asterisco de campos obligatorios */
+            color: #ff4d4d;
+            /* Color rojo para los campos obligatorios */
+        }
+
+        .tech-input {
+            /* Estilo base para inputs y selects en la sección técnica */
+            background-color: var(--input-bg);
+            /* Fondo oscuro para los campos de entrada */
+            border: 1px solid var(--border-color);
+            /* Borde sutil para definir los campos */
+            color: white;
+            /* Texto blanco para contraste */
+            padding: 12px 15px;
+            /* Espaciado interno para comodidad de escritura */
+            border-radius: 6px;
+            /* Bordes redondeados para un look moderno */
+            font-size: 0.95rem;
+            /* Tamaño de fuente para los campos de entrada */
+            transition: 0.3s;
+            /* Transición suave para interacciones */
+            width: 100%;
+            /* Ancho completo para inputs y selects */
+        }
+
+        .tech-input:focus {
+            /* Comportamiento al hacer clic dentro del campo */
+            background-color: #000;
+            /* Cambia a negro puro para resaltar el campo activo */
+            border-color: var(--gold);
+            /* Borde dorado corporativo para guiar la atención */
+            box-shadow: none;
+            /* Elimina el resplandor azul por defecto de Bootstrap */
+            color: white;
+            /* Mantiene el texto visible */
+            outline: none;
+            /* Elimina el borde de enfoque del navegador */
+        }
+
+        .tech-input::placeholder {
+            /* Estilo para el texto de sugerencia (ej. "Ingresa el valor...") */
+            color: #555;
+            /* Tono gris oscuro para no competir con el texto real ingresado */
+        }
+
+        .form-text {
+            /* Estilo para los mensajes de ayuda debajo de los inputs */
+            color: var(--text-muted);
+            /* Color atenuado para jerarquía secundaria */
+            font-size: 0.75rem;
+            /* Tamaño de fuente reducido para no saturar la pantalla */
+            margin-top: 6px;
+            /* Separación ligera del input principal */
+        }
+
+        /* Radio Cards Custom */
+        .radio-grid {
+            /* Contenedor principal de las tarjetas de selección */
+            display: grid;
+            /* Activa el diseño de cuadrícula */
+            grid-template-columns: 1fr 1fr;
+            /* Divide el espacio en dos columnas exactamente iguales */
+            gap: 15px;
+            /* Espacio uniforme de 15px entre cada tarjeta */
+            margin-bottom: 15px;
+            /* Separación con el siguiente bloque del formulario */
+        }
+
+        .radio-card {
+            /* Tarjeta individual cliqueable (reemplaza al radio button normal) */
+            background: var(--input-bg);
+            /* Fondo base oscuro */
+            border: 1px solid var(--border-color);
+            /* Borde tenue inicial */
+            border-radius: 8px;
+            /* Bordes suaves */
+            padding: 15px;
+            /* Área interna amplia para facilitar el toque en móviles */
+            cursor: pointer;
+            /* Cambia el cursor a una mano para indicar que es cliqueable */
+            display: flex;
+            /* Alinea el círculo y el texto horizontalmente */
+            align-items: center;
+            /* Centra los elementos verticalmente */
+            transition: 0.2s;
+            /* Animación rápida al interactuar */
+            position: relative;
+            /* Necesario para posicionar el punto interior después */
+        }
+
+        .radio-card:hover {
+            /* Efecto al pasar el ratón sobre la tarjeta */
+            border-color: #555;
+            /* Ilumina ligeramente el borde para invitar al clic */
+        }
+
+        .radio-card input[type="radio"] {
+            /* El círculo de selección real */
+            appearance: none;
+            /* Oculta el diseño predeterminado y feo del navegador */
+            width: 16px;
+            /* Ancho fijo del círculo exterior */
+            height: 16px;
+            /* Alto fijo del círculo exterior */
+            border: 2px solid #555;
+            /* Borde gris para el estado no seleccionado */
+            border-radius: 50%;
+            /* Lo hace perfectamente redondo */
+            margin-right: 12px;
+            /* Separación con el texto de la opción */
+            position: relative;
+            /* Posicionamiento para el punto interno */
+            cursor: pointer;
+            /* Mantiene la consistencia del cursor */
+            outline: none;
+            /* Evita recuadros de selección nativos */
+        }
+
+        .radio-card input[type="radio"]:checked {
+            /* Círculo exterior cuando está seleccionado */
+            border-color: var(--gold);
+            /* Cambia el borde exterior a dorado */
+        }
+
+        /* ESCUDO DE INTEGRIDAD: Oculta flechas (spinners) en inputs numéricos técnicos */
+        .sin-flechas::-webkit-outer-spin-button,
+        .sin-flechas::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .sin-flechas {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .radio-card input[type="radio"]:checked::after {
+            /* El punto sólido interno de selección */
+            content: '';
+            /* Elemento virtual generado por CSS */
+            width: 8px;
+            /* Tamaño del punto dorado interno */
+            height: 8px;
+            /* Tamaño del punto dorado interno */
+            background: var(--gold);
+            /* Color de relleno dorado */
+            border-radius: 50%;
+            /* Lo hace redondo */
+            position: absolute;
+            /* Lo posiciona libremente dentro del círculo mayor */
+            top: 50%;
+            /* Lo baja al centro exacto */
+            left: 50%;
+            /* Lo mueve al centro exacto */
+            transform: translate(-50%, -50%);
+            /* Ajuste matemático para el centrado perfecto */
+        }
+
+        .radio-card.active {
+            /* Estado de la tarjeta completa cuando está seleccionada */
+            border-color: var(--gold);
+            /* Borde exterior dorado */
+            background: rgba(242, 192, 95, 0.05);
+            /* Fondo con un tinte dorado muy transparente (5%) */
+        }
+
+        /* Tabla de Medidas */
+        .table-medidas {
+            /* Contenedor de la tabla de dimensiones X, Y, Z */
+            width: 100%;
+            /* Ocupa todo el ancho del contenedor padre */
+            border-collapse: separate;
+            /* Permite usar bordes redondeados en la tabla */
+            border-spacing: 0;
+            /* Elimina espacios entre celdas */
+            background: var(--input-bg);
+            /* Fondo oscuro base */
+            border-radius: 8px;
+            /* Esquinas redondeadas generales */
+            overflow: hidden;
+            /* Oculta las esquinas de las celdas internas que sobresalgan */
+            border: 1px solid var(--border-color);
+            /* Borde exterior contenedor */
+        }
+
+        .table-medidas th {
+            /* Celdas de cabecera de la tabla */
+            color: var(--gold);
+            /* Texto dorado para destacar los títulos */
+            font-size: 0.8rem;
+            /* Tamaño de fuente pequeño y elegante */
+            font-weight: 600;
+            /* Texto en negrita para jerarquía */
+            padding: 12px;
+            /* Espacio interno para que respiren los títulos */
+            border-bottom: 1px solid var(--border-color);
+            /* Línea divisoria con los datos */
+            text-align: center;
+            /* Centra el título en su columna */
+            background: #0d0d0d;
+            /* Fondo ligeramente más oscuro que el resto de la tabla */
+        }
+
+        .table-medidas th:first-child {
+            /* Modificación específica para la primera cabecera */
+            text-align: left;
+            /* Alinea el texto a la izquierda en vez del centro */
+            color: var(--text-main);
+            /* Usa el texto blanco normal en lugar de dorado */
+        }
+
+        .table-medidas td {
+            /* Celdas de datos normales */
+            padding: 12px;
+            /* Espacio interno uniforme */
+            text-align: center;
+            /* Centra los inputs en la celda */
+        }
+
+        .table-medidas td:first-child {
+            /* Primera celda de cada fila (ej. "Ancho (X)") */
+            text-align: left;
+            /* Alineación a la izquierda */
+            font-size: 0.85rem;
+            /* Texto ligeramente más pequeño */
+            color: var(--text-muted);
+            /* Color grisáceo para no competir con el dato ingresado */
+        }
+
+        .input-medida {
+            /* El campo de texto invisible dentro de la tabla */
+            width: 100%;
+            /* Ocupa toda la celda disponible */
+            background: transparent;
+            /* Elimina el fondo del input para que se vea el de la tabla */
+            border: none;
+            /* Elimina los bordes del input */
+            color: white;
+            /* Texto ingresado en blanco puro */
+            text-align: center;
+            /* El número aparece en el centro */
+            font-size: 0.95rem;
+            /* Tamaño de fuente estándar */
+        }
+
+        .input-medida:focus {
+            /* Cuando el usuario está escribiendo un número */
+            outline: none;
+            /* Evita recuadros azules de los navegadores */
+            border-bottom: 1px solid var(--gold);
+            /* Dibuja una línea dorada sutil solo abajo */
+        }
+
+        /* Acordeón y Cajas */
+        .accordion-item {
+            /* Bloque colapsable de información técnica */
+            background-color: var(--input-bg);
+            /* Fondo base oscuro */
+            border: 1px solid var(--border-color);
+            /* Borde delimitador */
+            color: white;
+            /* Texto general en blanco */
+            margin-bottom: 10px;
+            /* Separación entre múltiples acordeones */
+            border-radius: 8px !important;
+            /* Fuerza bordes redondeados sobreescribiendo Bootstrap */
+            overflow: hidden;
+            /* Oculta el contenido al cerrarse limpiamente */
+        }
+
+        .accordion-button {
+            /* El botón en el que se hace clic para abrir/cerrar */
+            background-color: #1a1a1a;
+            /* Fondo oscuro diferenciado */
+            color: var(--gold);
+            /* Título en dorado */
+            font-weight: 600;
+            /* Título en negrita */
+        }
+
+        .accordion-button:not(.collapsed) {
+            /* Estado cuando el acordeón está ABIERTO */
+            background-color: #222;
+            /* Aclara levemente el fondo para denotar que está activo */
+            color: var(--gold);
+            /* Mantiene el texto dorado */
+            box-shadow: none;
+            /* Elimina la sombra azul molesta de Bootstrap */
+        }
+
+        .accordion-button::after {
+            /* El ícono de flecha del acordeón */
+            filter: invert(1);
+            /* Truco técnico: invierte el ícono negro de Bootstrap a blanco */
+        }
+
+        .accordion-body {
+            /* El contenedor del texto interior al abrir el acordeón */
+            font-size: 0.85rem;
+            /* Texto de lectura compacto */
+            line-height: 1.6;
+            /* Interlineado amplio para facilitar la lectura de párrafos largos */
+            color: var(--text-main);
+            /* Texto en blanco estándar */
+        }
+
+        .resource-box {
+            /* Caja visual para links externos o descargas */
+            background: #111;
+            /* Fondo muy profundo, casi negro */
+            border: 1px solid #333;
+            /* Borde gris oscuro */
+            border-radius: 8px;
+            /* Bordes redondeados */
+            padding: 20px;
+            /* Espacio interno amplio y cómodo */
+            font-size: 0.85rem;
+            /* Texto compacto */
+        }
+
+        .resource-list {
+            /* Lista de recursos (ul/ol) */
+            list-style: none;
+            /* Quita las viñetas (puntos) predeterminadas del navegador */
+            padding-left: 0;
+            /* Elimina el margen izquierdo por defecto de las listas */
+        }
+
+        .resource-list li span {
+            /* Estilo para el icono o texto destacado dentro del ítem de lista */
+            color: var(--gold);
+            /* Aplica el acento dorado */
+            font-weight: bold;
+            /* Texto en negrita fuerte */
+            margin-right: 5px;
+            /* Lo separa un poco del texto normal que le sigue */
+        }
+
+        /* Drag & Drop Zone */
+        .drop-zone {
+            /* El área gigante para subir archivos STL/PDF */
+            border: 2px dashed #444;
+            /* Borde punteado clásico de las zonas de carga */
+            border-radius: 8px;
+            /* Bordes redondeados */
+            padding: 40px 20px;
+            /* Zona de impacto enorme (40px arriba y abajo) para no fallar con el mouse */
+            text-align: center;
+            /* Centra el icono y el texto indicativo */
+            cursor: pointer;
+            /* Muestra la mano para invitar al clic */
+            transition: 0.3s;
+            /* Animación suave al pasar por encima */
+            background: #0d0d0d;
+            /* Fondo más oscuro que el resto de la interfaz */
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            /* Estados cuando el ratón o un archivo están flotando encima */
+            border-color: var(--gold);
+            /* El borde cambia a dorado brillante indicando éxito inminente */
+            background: #141414;
+            /* Se aclara levemente el fondo */
+        }
+
+        .drop-zone i {
+            /* El icono (ej. la nube con la flecha) dentro de la zona */
+            color: #fff;
+            /* Icono en blanco puro para máximo contraste */
+            font-size: 2rem;
+            /* Icono muy grande (el doble de lo normal) */
+            margin-bottom: 15px;
+            /* Lo separa del texto inferior */
+        }
+
+        .drop-zone .browse-text {
+            /* La palabra "Explorar" o similar dentro de la zona */
+            color: var(--gold);
+            /* Acento dorado para denotar que es una acción o link */
+            font-weight: 600;
+            /* Texto en negrita media */
+        }
+
+        /* Botón Final */
+        .btn-gold {
+            /* Botón de envío final del formulario "Ir a Presupuesto" */
+            background-color: var(--gold);
+            /* Relleno completo con el color de marca Legión 3D */
+            color: black;
+            /* Texto negro para generar el contraste más alto y legible posible */
+            border: none;
+            /* Sin bordes adicionales */
+            border-radius: 50px;
+            /* Esquinas totalmente redondeadas tipo píldora */
+            padding: 15px 30px;
+            /* Botón grueso y robusto */
+            font-weight: 700;
+            /* Texto extra grueso */
+            width: 100%;
+            /* Obliga al botón a ocupar todo el ancho, maximizando el CTA (Call to Action) */
+            font-size: 1rem;
+            /* Tamaño de texto estándar */
+            margin-top: 40px;
+            /* Separación fuerte con el último elemento del formulario */
+            transition: 0.3s;
+            /* Animación suave para efectos de hover */
+        }
+
+        .btn-gold:hover {
+            /* Efecto visual al pasar el ratón por el botón final */
+            background-color: #d9ac55;
+            /* Oscurece el dorado para indicar interactividad */
+            transform: translateY(-2px);
+            /* Levanta visualmente el botón 2 píxeles hacia arriba */
+            box-shadow: 0 5px 15px rgba(242, 192, 95, 0.2);
+            /* Proyecta una sombra dorada suave debajo simulando elevación 3D */
+        }
+
+        /* Utilitarios */
+        .d-none {
+            /* Clase auxiliar de Bootstrap para ocultar cosas */
+            display: none !important;
+            /* Fuerza absolutamente la desaparición del elemento visualmente */
+        }
+
+        .mt-5 {
+            /* Clase auxiliar de margen */
+            margin-top: 3rem !important;
+            /* Fuerza absolutamente un margen superior grande (aprox 48px) */
+        }
+
+        /* Mejora de claridad para textos secundarios (Reemplazo de text-muted) */
+        .text-muted {
+            color: rgba(255, 255, 255, 0.8) !important;
+            /* Blanco con 80% de opacidad para ser claro pero secundario */
+        }
+
+
+        /* 
+ * 
+ * OCULTAR FLECHAS (SPINNERS) EN INPUTS NUMÉRICOS
+ * 
+ * A nivel de Experiencia de Usuario (UX) y validación de datos, esta es una decisión 
+ * técnica fundamental. Cuando el cliente de Legión 3D ingresa medidas de alta precisión 
+ * (como 15.5 mm), las flechas nativas que los navegadores agregan por defecto estorban 
+ * visualmente y pueden causar que el valor cambie si el usuario hace scroll accidentalmente.
+ * Al eliminarlas, obligamos al usuario a teclear la medida exacta, reduciendo el margen de error.
+ */
+
+        /* 1. Para navegadores basados en WebKit (Chrome, Safari, Edge, Opera) */
+        .tech-input::-webkit-outer-spin-button,
+        /* Selecciona la flecha exterior nativa del input */
+        .tech-input::-webkit-inner-spin-button,
+        /* Selecciona la flecha interior nativa del input */
+        input[type="number"].sin-flechas::-webkit-inner-spin-button,
+        /* Aplica la misma regla a cualquier campo con nuestra clase utilitaria */
+        input[type="number"].sin-flechas::-webkit-outer-spin-button {
+            /* Asegura la cobertura total de ambas flechas en WebKit */
+            -webkit-appearance: none;
+            /* Ordena explícitamente al motor de renderizado que no dibuje estos elementos */
+            appearance: none;
+            /* Propiedad estándar recomendada por la W3C para navegadores modernos */
+            margin: 0;
+            /* Elimina cualquier margen oculto o espacio fantasma que dejen las flechas al desaparecer */
+        }
+
+        /* 2. Para navegadores basados en Mozilla (Firefox) */
+        .tech-input[type=number],
+        /* Selecciona nuestros inputs técnicos exclusivamente cuando son de tipo numérico */
+        input[type="number"].sin-flechas {
+            /* Selecciona nuestra clase de apoyo */
+            -moz-appearance: textfield;
+            /* Le indica al motor de Firefox que trate este componente visualmente como un campo de texto plano (sin botones) */
+            appearance: textfield;
+            /* Propiedad estándar para homologar y asegurar este comportamiento en versiones recientes de Firefox */
+        }
+
+        .alert-dark {
+    --bs-alert-color:#ffc107;
+    --bs-alert-bg:#000000;
+    --bs-alert-border-color:#ffc107;
+    }
+
+    /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+    
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="form-container">
+
+        <!-- 1. CABECERA -->
+        <div class="text-center mb-5">
+            <img th:src="@{/img/logo-legion.webp}" alt="Legión 3D" style="height: 50px; margin-bottom: 20px;">
+            <h1>Formulario Técnico</h1>
+            <div class="info-box">
+                Complete los campos obligatorios para especificar los detalles de su pedido y sus preferencias de
+                entrega.
+                <p class="text-white-50">Código de Seguimiento: <span class="text-gold font-monospace fw-bold"
+                        th:text="${pedido.codigoSeguimiento}">LEG-8AA3</span></p>
+            </div>
+
+            <!-- Alerta de éxito controlada por Spring Boot -->
+            <div th:if="${mensaje}" class="alert alert-success mt-3"
+                style="background: rgba(40, 167, 69, 0.1); border-color: #28a745; color: #28a745;">
+                <i class="fas fa-check-circle me-2"></i> <span th:text="${mensaje}"></span>
+            </div>
+        </div>
+
+
+        <form id="formTecnico" onsubmit="enviarFormularioTecnico(event)">
+            <!-- IDs de Control -->
+            <input type="hidden" id="hiddenPedidoId" name="pedidoId" th:value="${pedido.id}">
+            <input type="hidden" id="hiddenCodigoTracker" th:value="${pedido.codigoSeguimiento}">
+
+
+            <!-- 2. DATOS DE CONTACTO -->
+            <div class="section-title">CONTACTO</div>
+            <div class="mb-4">
+                <div class="mb-4">
+                    <label class="form-label">Teléfono de Contacto <span class="req">*</span></label>
+                    <input type="tel" name="telefonoContacto" id="telefonoContacto" class="tech-input"
+                        th:value="${pedido.cliente.telefono}" placeholder="+569 1234 5678" required>
+                </div>
+            </div>
+
+            <!-- 3. SOBRE LA PIEZA -->
+            <div class="section-title">SOBRE LA PIEZA</div>
+
+            <div class="mb-4">
+                <label class="form-label">¿Tiene pieza física? <span class="req">*</span></label>
+                <div class="radio-grid">
+                    <label class="radio-card" id="si-pieza" onclick="toggleOpciones(true, this)">
+                        <input type="radio" name="tienePiezaFisica" value="true" required> <span>Sí</span>
+                    </label>
+                    <label class="radio-card" id="no-pieza" onclick="toggleOpciones(false, this)">
+                        <input type="radio" name="tienePiezaFisica" value="false"> <span>No</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Desplegable SI TIENE PIEZA -->
+            <div id="group-con-pieza" class="mb-4 d-none">
+                <label class="form-label">¿Qué deseas hacer con tu pieza física? <span class="req">*</span></label>
+                <select name="necesitaModificacion" class="form-select tech-input" id="select-con-pieza">
+                    <option value="">- Selecciona una opción -</option>
+                    <option value="Reemplazo (Pieza rota o gastada)">Reemplazo (Pieza rota o gastada)</option>
+                    <option value="Modificar diseño (Cambiar geometría original)">Modificar diseño (Cambiar geometría
+                        original)</option>
+                    <option value="Duplicarla (Copia idéntica)">Duplicarla (Copia idéntica)</option>
+                    <option value="Cambiar tamaño (Escalado)">Cambiar tamaño (Escalado)</option>
+                    <option value="Accesorio (Pieza que calza en otra)">Accesorio (Pieza que calza en otra)</option>
+                    <option value="Digitalizar (Solo escaneo 3D)">Digitalizar (Solo escaneo 3D)</option>
+                    <option value="Asesoramiento técnico">Asesoramiento técnico</option>
+                </select>
+            </div>
+
+            <!-- Desplegable NO TIENE PIEZA -->
+            <div id="group-sin-pieza" class="mb-4 d-none">
+                <label class="form-label">Estado de su proyecto digital <span class="req">*</span></label>
+                <select name="necesitaModificacion" class="form-select tech-input" id="select-sin-pieza">
+                    <option value="">- Selecciona una opción -</option>
+                    <option value="Ya tengo el archivo 3D listo para imprimir">Ya tengo el archivo 3D listo para
+                        imprimir</option>
+                    <option value="Tengo un Enlace a modelo">Tengo un enlace del modelo (Thingiverse/Cults)</option>
+                    <option value="Tengo un archivo 3D pero necesita modificaciones">Tengo un archivo 3D pero necesita
+                        modificaciones</option>
+                    <option value="Solo tengo Planos/bocetos/fotos">Solo tengo planos, bocetos o fotos</option>
+                    <option value="Asesoramiento/solo idea">No tengo nada, solo la idea (Asesoramiento)</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Tolerancia / Encaje (¿Esta pieza debe calzar con otro objeto?) <span
+                        class="req">*</span></label>
+                <div class="radio-grid">
+                    <label class="radio-card" onclick="activarEstiloRadio(this, 'toleranciaCheck')">
+                        <input type="radio" name="toleranciaCheck" value="true" required> <span>Sí, debe
+                            calzar</span>
+                    </label>
+                    <label class="radio-card" onclick="activarEstiloRadio(this, 'toleranciaCheck')">
+                        <input type="radio" name="toleranciaCheck" value="false"> <span>No es necesario</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">¿Las piezas a imprimir son copias exactas de un mismo diseño? <span
+                        class="req">*</span></label>
+                <div class="radio-grid">
+                    <label class="radio-card" onclick="activarEstiloRadio(this, 'esCopiaExacta')">
+                        <input type="radio" name="esCopiaExacta" value="true" required> <span>Sí, es copia
+                            idéntica</span>
+                    </label>
+                    <label class="radio-card" onclick="activarEstiloRadio(this, 'esCopiaExacta')">
+                        <input type="radio" name="esCopiaExacta" value="false"> <span>No, son piezas
+                            diferentes</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4. MEDIDAS Y CANTIDAD -->
+            <div class="section-title">MEDIDAS Y CANTIDAD</div>
+
+            <div class="mb-3">
+                <label class="section-title">Medidas Finales de la Pieza (Las medidas deben ser en milímetros mm Revise
+                    bien Sus medidas antes de enviar)<span class="req">*</span></label>
+                <table class="table-medidas">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Ancho (mm)</th>
+                            <th>Alto (mm)</th>
+                            <th>Profundidad (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Tamaño Real</td>
+                            <td><input type="number" step="0.1" name="medidaAncho" class="input-medida sin-flechas"
+                                    placeholder="0.0" required></td>
+                            <td><input type="number" step="0.1" name="medidaAlto" class="input-medida sin-flechas"
+                                    placeholder="0.0" required></td>
+                            <td><input type="number" step="0.1" name="medidaProfundidad"
+                                    class="input-medida sin-flechas" placeholder="0.0" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+
+                
+                <div class="form-text mt-2 lh-lg text-white-pure">
+                    Las medidas deben ingresarse en milímetros (mm). Para tomar las medidas correctamente: Utiliza
+                    una
+                    regla, cinta métrica o calibre en milímetros. Mide siempre de borde a borde, sin dejar espacios.
+                    Ingresa el valor exacto, sin convertir a centímetros ni pulgadas. Evita redondear: escribe el
+                    número
+                    tal cual aparece en tu instrumento. Si tienes dudas, puedes usar esta calculadora: <a
+                        href="https://masterplc.com/calculadora/convertir-centimetros-a-milimetros/" target="_blank"
+                        class="text-gold text-decoration-none">Convertir cm a mm.</a>
+                </div>
+            </div>
+
+            <div class="mb-4 mt-4">
+                <label class="form-label">Cantidad de Unidades (Volumen de Producción) <span
+                        class="req">*</span></label>
+                <input type="number" name="cantidadUnidades" class="tech-input sin-flechas" placeholder="Ej: 23" min="1"
+                    step="1" required>
+                <div class="form-text text-white-pure">Coloque aquí la cantidad de piezas que desea realizar.</div>
+            </div>
+
+
+            <div class="section-title">ARCHIVO 3D</div>
+
+            <div class="resource-box mb-3">
+                <h6>🔍 Recursos para búsqueda de diseños</h6>
+                <ul class="resource-list">
+                    <li><span>1.</span> <a href="https://printables.com" target="_blank">printables.com</a>: extensa
+                        biblioteca de modelos gratuitos con una comunidad muy activa.</li>
+                    <li><span>2.</span> <a href="https://thangs.com" target="_blank">thangs.com</a>: potente
+                        buscador de modelos 3D que incluye filtros avanzados de geometría.</li>
+                    <li><span>3.</span> <a href="https://thingiverse.com" target="_blank">thingiverse.com</a>: la
+                        comunidad más grande de archivos gratuitos compartidos por usuarios.</li>
+                    <li><span>4.</span> <a href="https://cults3d.com" target="_blank">cults3d.com</a>: plataforma
+                        con diseños de alta calidad realizados por profesionales.</li>
+                    <li><span>5.</span> <a href="https://myminifactory.com" target="_blank">myminifactory.com</a>:
+                        modelos verificados para impresión, con excelentes opciones gratuitas.</li>
+                    <li><span>6.</span> <a href="https://cgtrader.com" target="_blank">cgtrader.com</a>: mercado
+                        global de modelos, ideal para proyectos técnicos o comerciales detallados.</li>
+                    <li><span>7.</span> <a href="https://www.stlfinder.com/" target="_blank">stlfinder.com</a>:
+                        motor de búsqueda especializado en localizar archivos STL gratuitos.</li>
+                </ul>
+
+                <p class="form-text mt-2 text-white-pure">Si no dispones de un modelo 3D, puedes buscar uno similar
+                    en estas plataformas o enviarnos fotos y medidas para que realicemos el diseño por ti.</p>
+                <p class="form-text mt-2 text-white-pure">Considera que el archivo debe estar en formato **.STL** o
+                    **.OBJ** para garantizar la compatibilidad con nuestro proceso de impresión.</p>
+                <p class="form-text mt-2 text-white-pure">Si ya tienes un modelo pero dudas de su calidad o
+                    imprimibilidad, envíanoslo para realizar una revisión técnica sin compromiso.</p>
+                <p class="form-text mt-2 text-white-pure">**Nota:** Para obtener mejores resultados en estas
+                    páginas, recomendamos realizar las búsquedas en inglés. Aquí tienes un enlace al <a
+                        href="https://translate.google.com/?sl=es&tl=en&op=translate" target="_blank">Traductor de
+                        Google</a> para facilitar tu búsqueda.</p>
+                <div class="mt-4 pt-2 border-top">
+                    <p class="form-text mb-2 text-white-pure"><strong>¿Aún tienes dudas con tu
+                            requerimiento?</strong> Si te sientes perdido o prefieres recibir asesoría personalizada
+                        para concretar tu idea, puedes comunicarte directamente con nosotros:</p>
+                    <a href="https://wa.me/56967879555" target="_blank"
+                        class="btn btn-success btn-sm d-inline-flex align-items-center">
+                        Contactar a Legión 3D por WhatsApp →
+                    </a>
+                </div>
+            </div>
+
+            <!-- ACORDEÓN DE AYUDA -->
+            <div class="accordion mb-4" id="accordionAyuda">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseHelp">
+                            💡 ¿No tienes el archivo 3D o se te rompió una pieza?
+                        </button>
+                    </h2>
+                    <div id="collapseHelp" class="accordion-collapse collapse" data-bs-parent="#accordionAyuda">
+                        <div class="accordion-body">
+                            <strong>Repuestos:</strong> Si la pieza ya no se fabrica, podemos digitalizarla mediante
+                            fotogrametría o escaneo láser para su replicación. <br>
+                            <strong>Ideas:</strong> Si tienes una necesidad pero no el diseño, cuéntanos tu problema
+                            y nosotros desarrollaremos la solución técnica adecuada. <br>
+                            <strong>Piezas rotas:</strong> Envíanos los fragmentos y nos encargaremos de reconstruir
+                            el modelo digitalmente. <br>
+                            <strong>Métodos de envío:</strong> Puedes subir el archivo mediante este formulario,
+                            compartir un enlace de Drive o traer la pieza física directamente a nuestro <a
+                                href="https://www.google.com/maps/place/Portugal+1348,+8360092+Santiago,+Regi%C3%B3n+Metropolitana/@-33.460352,-70.6321125,17z/data=!3m1!4b1!4m6!3m5!1s0x9662c5660cc3a26f:0x66cb8f0707fb5800!8m2!3d-33.460352!4d-70.6321125!16s%2Fg%2F11bw445kxl?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D"
+                                target="_blank">taller (ver ubicación en Google Maps)</a>.<br>
+
+                            <p class="form-text mt-3 text-white-pure">¿Tienes dudas sobre cómo localizar el diseño
+                                ideal entre tantas opciones? Te sugerimos revisar este video instructivo donde se
+                                explica paso a paso cómo navegar por estas plataformas y utilizar los términos de
+                                búsqueda más efectivos para encontrar tu pieza:</p>
+                            <a href="https://www.youtube.com/watch?v=XsSPAA21oCM&t=181s" target="_blank"
+                                class="text-gold mt-1 d-inline-block">Ver tutorial: Cómo buscar modelos 3D con éxito
+                                →</a>
+
+                            <p class="form-text mt-2 text-white-pure">¿Aún te sientes perdido? También puedes <a
+                                    href="https://wa.me/56967879555" target="_blank"
+                                    class="text-gold fw-bold">escribirnos por WhatsApp aquí</a> y te ayudaremos
+                                directamente.</p>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 5. ARCHIVO 3D -->
+            <!-- Aviso de Recurso Previo (No Invasivo) -->
+            <div th:if="${not #strings.isEmpty(pedido.linkArchivoInicial)}" class="alert alert-dark border-warning mb-4">
+                <p class="small text-warning fw-bold mb-2">
+                    <i class="fas fa-database me-2"></i> ARCHIVO PREVIO DETECTADO
+                </p>
+                <p class="small mb-0">Hemos recibido un archivo o enlace en tu consulta inicial. Si deseas mantenerlo,
+                    puedes dejar esta sección de carga en blanco. Si necesitas actualizarlo, simplemente sube tu nuevo
+                    archivo o pega el nuevo enlace a continuación.</p>
+            </div>
+
+
+
+            <!-- Contenedor de Carga Libre -->
+            <div id="seccion-carga-nueva">
+                <div class="mb-4">
+                    <label class="form-label">Subir Nuevo Archivo 3D <span
+                            class="text-muted fw-normal">(Opcional)</span></label>
+                    <div class="drop-zone" onclick="document.getElementById('input-archivo-3d').click()">
+                        <i class="fas fa-file-upload"></i>
+                        <div class="browse-text">Subir Archivo (STL, Imágenes, PDF o ZIP)</div>
+                        <p class="sub-text mt-2" id="file-name">Ningún archivo seleccionado</p>
+                        <input type="file" id="input-archivo-3d" name="archivo3d" class="d-none"
+                            onchange="mostrarNombreArchivo(this)" accept=".stl,.obj,.zip,.rar,.png,.jpg,.jpeg,.pdf">
+                    </div>
+                    <div class="form-text">Subir Archivo (STL, Imágenes, PDF o ZIP). En caso de enviar varias piezas o
+                        archivos (por favor comprímalos en un archivo .ZIP).</div>
+                </div>
+                        <!-- ACORDEÓN DE INSTRUCCIONES DE ENVÍO DETALLADO -->
+                <div class="accordion mb-3" id="accordionInstruccionesEnvio">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#collapseInstEnvio">
+                                💡 ¿Cómo enviarnos tu diseño de la mejor manera? (Instrucciones detalladas)
+                            </button>
+                        </h2>
+                        <div id="collapseInstEnvio" class="accordion-collapse collapse"
+                            data-bs-parent="#accordionInstruccionesEnvio">
+                            <div class="accordion-body">
+                                <p class="mb-3">Para procesar tu pedido con éxito y evitar retrasos, puedes hacernos
+                                    llegar tu diseño de las siguientes formas:</p>
+
+                                <p class="mb-1"><strong>1. Subida directa (si ya tienes el archivo):</strong></p>
+                                <p class="text-muted small mb-3">Usa el botón **"Subir Archivo"** para cargar un único
+                                    archivo .STL o un .ZIP con varias piezas. Este método es ideal para archivos
+                                    pequeños que ya residen en tu computador.</p>
+
+                                <p class="mb-1"><strong>2. Envío mediante enlace (Opción recomendada y
+                                        preferida):</strong></p>
+                                <p class="text-muted small mb-3">Compartir un link es la mejor opción para nuestro
+                                    equipo técnico, ya que nos permite visualizar el modelo original con total
+                                    precisión. Dependiendo de dónde tengas el diseño, sigue estos pasos:</p>
+
+                                <div class="bg-dark-light p-3 rounded mb-3">
+                                    <p class="mb-2"><strong>A. Si usas Google Drive, Mega o Dropbox:</strong></p>
+                                    <p class="text-muted small mb-2">Puedes acceder directamente a tu espacio aquí:
+                                        <a href="https://drive.google.com/" target="_blank"
+                                            class="text-gold fw-bold">Google Drive</a>,
+                                        <a href="https://mega.nz/" target="_blank" class="text-gold fw-bold">Mega</a> o
+                                        <a href="https://www.dropbox.com/" target="_blank"
+                                            class="text-gold fw-bold">Dropbox</a>.
+                                    </p>
+                                    <ul class="mb-0">
+                                        <li><strong>Paso 1:</strong> Sube tu archivo (.STL, .OBJ o .ZIP) a tu servicio
+                                            de nube favorito.</li>
+                                        <li><strong>Paso 2 (Seguridad y Acceso):</strong> Es estrictamente necesario
+                                            configurar el acceso como **"Cualquier persona con el enlace"**.</li>
+                                    </ul>
+                                    <p class="text-muted small mt-2 mb-2"><strong>Nota importante sobre la
+                                            privacidad:</strong> Al seleccionar esta opción, el archivo no se vuelve
+                                        público en internet ni aparecerá en buscadores. Simplemente le otorgas un
+                                        "permiso de visualización" a nuestro equipo técnico de Legión 3D. Sin este
+                                        permiso activo, nuestro sistema de auditoría no podrá abrir el archivo y no
+                                        podremos generar tu presupuesto.</p>
+                                    <ul class="mb-0">
+                                        <li><strong>Paso 3:</strong> Una vez otorgado el acceso para nosotros, haz clic
+                                            en "Copiar enlace".</li>
+                                        <li><strong>Paso 4:</strong> Pégalo en el campo inferior titulado **"O ingresa
+                                            el link del archivo"**.</li>
+                                    </ul>
+                                </div>
+
+                                <div class="bg-dark-light p-3 rounded">
+                                    <p class="mb-2"><strong>B. Si lo encontraste en una de las 7 páginas
+                                            recomendadas:</strong></p>
+                                    <ul class="mb-0">
+                                        <li><strong>Paso 1:</strong> Abre el diseño directamente en la web (como
+                                            Printables, Thingiverse o Cults3D).</li>
+                                        <li><strong>Paso 2:</strong> Dirígete a la barra superior de tu navegador y
+                                            copia la dirección URL completa.</li>
+                                        <li><strong>Paso 3:</strong> Pégala en el campo de abajo titulado **"O ingresa
+                                            el link del archivo"**.</li>
+                                    </ul>
+                                </div>
+
+                                <p class="text-muted small mt-3">Al compartirnos el enlace directamente, aseguras que
+                                    nuestro equipo analice la versión técnica correcta del modelo que deseas imprimir.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        
+
+                <div class="mb-4">
+                    <label class="form-label">O ingresa el link del archivo <span class="text-muted fw-normal">(Drive,
+                            Mega,
+                            Puede ser un link de Internet ,etc.)</span></label>
+                    <input type="url" name="linkArchivoFinal" id="linkArchivoFinal" class="tech-input"
+                        placeholder="https://drive.google.com/...">
+                    <div class="form-text">Si el archivo pesa más de 20MB, por favor súbelo a una nube y pega el link 
+                        aquí.el archivo puede ser (Drive, Mega,Puede ser un link de Internet
+                        etc.)</div> 
+                </div>
+            </div>
+
+    
+
+
+            <!-- 6. ESPECIFICACIONES TÉCNICAS -->
+            <div class="section-title">ESPECIFICACIONES TÉCNICAS</div>
+
+            <div class="mb-4">
+                <label class="form-label">Entorno de Uso <span class="req">*</span></label>
+                <select name="entornoUso" class="tech-input" required>
+                    <option value="">- Selecciona el entorno -</option>
+                    <option value="Fricción mecánica Fricción/Fuerza">Mecánico (Fricción / Fuerza)</option>
+                    <option value="Exterior Intemperie/Sol/UV">Exterior (Sol / Lluvia / UV)</option>
+                    <option value="Estético/Decorativo">Estético / Decorativo</option>
+                    <option value="Alta temperatura (>50°C - Grados centigrados)">Alta temperatura (>50°C - Grados centigrados)</option>
+                    <option value="Resistencia a Impactos">Resistencia a Impactos</option>
+                    <option value="Contacto agua">Contacto constante con agua</option>
+                    <option value="Contacto con alimentos">Contacto con alimentos (Certificado)</option>
+                    <option value="Resistencia a Químicos/Solventes">Resistencia a Químicos / Solventes</option>
+                    <option value="Soporte de Carga Estructural">Soporte de Carga Estructural</option>
+                    <option value="Otro entorno (Detallar abajo)">Otro entorno (Detallar abajo)</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Material Sugerido / Solicitado <span class="req">*</span></label>
+                <select name="materialSolicitado" class="tech-input" required>
+                    <option value="">- Selecciona un material -</option>
+                    <option value="PLA/PLA+">PLA / PLA+ (Estándar/Biodegradable)</option>
+                    <option value="PETG/ABS">PETG / ABS (Funcional/Resistente)</option>
+                    <option value="TPU/ABSMAX">TPU / ABS MAX (Flexible/Reforzado)</option>
+                    <option value="PET-CF">PET-CF (Fibra de Carbono - Industrial)</option>
+                    <option value="PLA ST">PLA ST (Súper Tenaz)</option>
+                    <option value="Sakata/BLAB">Sakata / BLAB (Especiales)</option>
+                    <option value="ASA">ASA (Resistente UV/Exterior)</option>
+                    <option value="TPU A95 HF">TPU A95 HF (Goma industrial)</option>
+                    <option value="Otro/ Necesito asesoría">Otro/ Necesito asesoría</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Color Solicitado <span class="req">*</span></label>
+                <select name="colorSolicitado" class="tech-input" required>
+                    <option value="">- Selecciona un color -</option>
+                    <option value="Blanco">Blanco</option>
+                    <option value="Gris">Gris</option>
+                    <option value="Negro">Negro</option>
+                    <option value="Otro/ Necesito asesoría">Otro/ Necesito asesoría</option>
+                </select>
+            </div>
+
+            <!-- 7. PRESUPUESTO Y PLAZOS -->
+            <div class="section-title">PRESUPUESTO Y PLAZOS</div>
+
+            <div class="mb-4">
+                <label class="form-label">Presupuesto Estimado <span class="req">*</span></label>
+                <select name="presupuestoEstimado" class="tech-input" required>
+                    <option value="">- Selecciona rango de inversión -</option>
+                    <option value="Menos de $50.000 CLP">Menos de $50.000 CLP</option>
+                    <option value="Entre $50.000 y $300.000 CLP">Entre $50.000 y $300.000 CLP</option>
+                    <option value="Entre $500.000 y $1.000.000 CLP">Entre $500.000 y $1.000.000 CLP</option>
+                    <option value="Entre $1.000.000 y $2.000.000 CLP">Entre $1.000.000 y $2.000.000 CLP</option>
+                    <option value="Más de $3.000.000 CLP">Más de $3.000.000 CLP</option>
+                    <option value="Sin presupuesto definido / Cotizar">Sin presupuesto definido / Cotizar</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Días de Entrega Solicitados (solo días hábiles)<span
+                        class="req">*</span></label>
+                <select name="diasEntrega" class="tech-input" required>
+                    <option value="">Plazo de entrega</option>
+                    <option value="Menos de 1 semana">(Menos de 1 semana)</option>
+                    <option value="1 Semana">1 Semana</option>
+                    <option value="2 Semanas">2 Semanas</option>
+                    <option value="3 Semanas">3 Semanas</option>
+                    <option value="4 Semanas">4 Semanas</option>
+                    <option value="Más de 5 semanas">Más de 5 semanas</option>
+                </select>
+            </div>
+
+            <!-- 8. ENTREGA Y FACTURACIÓN -->
+            <div class="section-title">ENTREGA Y FACTURACIÓN</div>
+
+            <div class="mb-4">
+                <label class="form-label">Método de Entrega <span class="req">*</span></label>
+                <div class="radio-grid">
+                    <label class="radio-card" onclick="toggleDireccion(false, this)">
+                        <input type="radio" name="metodoEntrega" value="Retiro en Taller" required> <span>Retiro en
+                            Taller
+                            (Santiago) Portugal 1348</span>
+                    </label>
+                    <label class="radio-card" onclick="toggleDireccion(true, this)">
+                        <input type="radio" name="metodoEntrega" value="STARKEN"> <span>Envío Starken (Envío por
+                            Paga)</span>
+                    </label>
+                    <label class="radio-card" onclick="toggleDireccion(false, this)">
+                        <input type="radio" name="metodoEntrega" value="Digital"> <span>Entrega Digital</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Panel de Dirección para Starken -->
+            <div id="group-direccion" class="mb-4 d-none p-3 border border-dark rounded" style="background: #0d0d0d;">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Región <span class="req">*</span></label>
+                        <select name="region" class="tech-input">
+                            <option value="">- Selecciona Región -</option>
+                            <option value="Arica y Parinacota">Arica y Parinacota</option>
+                            <option value="Tarapacá">Tarapacá</option>
+                            <option value="Antofagasta">Antofagasta</option>
+                            <option value="Atacama">Atacama</option>
+                            <option value="Coquimbo">Coquimbo</option>
+                            <option value="Valparaíso">Valparaíso</option>
+                            <option value="Metropolitana de Santiago">Metropolitana de Santiago</option>
+                            <option value="Libertador General Bernardo O'Higgins">O'Higgins</option>
+                            <option value="Maule">Maule</option>
+                            <option value="Ñuble">Ñuble</option>
+                            <option value="Biobío">Biobío</option>
+                            <option value="La Araucanía">La Araucanía</option>
+                            <option value="Los Ríos">Los Ríos</option>
+                            <option value="Los Lagos">Los Lagos</option>
+                            <option value="Aisén">Aisén</option>
+                            <option value="Magallanes y de la Antártica Chilena">Magallanes</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Comuna <span class="req">*</span></label>
+                        <input type="text" name="comuna" class="tech-input" placeholder="Ej: Providencia">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Calle y Número <span class="req">*</span></label>
+                        <!-- (aqui modificar al desplegar a produccion: actualizar el ejemplo de dirección en el placeholder) -->
+                        <input type="text" name="calleYNumero" class="tech-input" placeholder="Ej: Portugal 1348">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Depto/Casa/Oficina</label>
+                        <input type="text" name="deptoCasaOficina" class="tech-input" placeholder="Opcional">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Tipo de Envío <span class="req">*</span></label>
+                        <select name="tipoEnvioStarken" class="tech-input">
+                            <option value="Domicilio">A Domicilio (Envío por Paga)</option>
+                            <option value="Sucursal">Retiro en Sucursal Starken (Envío por Paga)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4 mt-5">
+                <label class="form-label">RUT del Cliente / Facturación <span class="req">*</span></label>
+                <!-- (aqui modificar al desplegar a produccion: actualizar el ejemplo de RUT en el placeholder) -->
+                <input type="text" id="rut-input" name="rut" class="tech-input" placeholder="12345678-K"
+                    oninput="formatRut(this)" maxlength="10" required>
+                <div class="form-text">Formato esperado: XXXXXXXX-X (con guion)</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Información Adicional <span
+                        class="text-muted fw-normal">(Opcional)</span></label>
+                <textarea name="informacionAdicional" class="tech-input" rows="4"
+                    placeholder="Indique aquí detalles técnicos, tolerancias críticas, combinación de colores, o cualquier observación relevante."></textarea>
+            </div>
+
+            <p class="text-white-50">Código de Seguimiento: <span class="text-gold font-monospace fw-bold"
+                    th:text="${pedido.codigoSeguimiento}">LEG-8AA3</span></p>
+
+            <button type="submit" id="btnSubmit" class="btn-gold">ENVIAR SOLICITUD TÉCNICA</button>
+
+        </form>
+    </div>
+
+    <!-- Scripts de Terceros -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+        /**
+         * INTERVENCIÓN DE SEGURIDAD: Protección de integridad de datos numéricos
+         * Bloquea el cambio de valores mediante el scroll del mouse (wheel) 
+         * para evitar alteraciones accidentales mientras el usuario navega.
+         * Se aplica a Medidas (Ancho, Alto, Profundidad) y Cantidad de Unidades.
+         */
+        document.addEventListener("wheel", function (event) {
+            const activeElement = document.activeElement;
+            if (activeElement.tagName === "INPUT" && activeElement.type === "number") {
+                const criticalFields = ["medidaAncho", "medidaAlto", "medidaProfundidad", "cantidadUnidades"];
+                if (criticalFields.includes(activeElement.name)) {
+                    event.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        /* --------------------------------------------------
+           SISTEMA GENÉRICO DE ENVÍO (FETCH + FORMDATA)
+           Este sistema permite enviar múltiples tipos de datos (texto y binarios)
+           de forma escalable. 
+           -------------------------------------------------------------- */
+
+        /**
+         * Lógica Toggle para las opciones condicionales de la pieza física
+         */
+        // Esta función se activa al hacer clic en las opciones "Sí" o "No" sobre la pregunta "¿Tiene pieza física?".
+        // Recibe un booleano que indica si el usuario tiene o no la pieza física, y el elemento HTML del radio-card para aplicar estilos.
+        // Dependiendo de la respuesta, muestra u oculta los grupos de opciones correspondientes y ajusta los campos requeridos para asegurar que el DTO que recibe el backend se mapee correctamente.
+        function toggleOpciones(tienePieza, element) {
+            activarEstiloRadio(element, 'tienePiezaFisica');
+            const groupCon = document.getElementById('group-con-pieza');
+            const groupSin = document.getElementById('group-sin-pieza');
+            const selectCon = document.getElementById('select-con-pieza');
+            const selectSin = document.getElementById('select-sin-pieza');
+
+            if (tienePieza) {
+                groupCon.classList.remove('d-none');
+                groupSin.classList.add('d-none');
+                selectCon.required = true;
+                selectSin.required = false;
+                selectSin.value = ''; // Limpiar el select oculto para mapeo correcto del DTO
+            } else {
+                groupCon.classList.add('d-none');
+                groupSin.classList.remove('d-none');
+                selectCon.required = false;
+                selectSin.required = true;
+                selectCon.value = ''; // Limpiar el select oculto para mapeo correcto del DTO
+            }
+        }
+
+        /**
+         * Lógica Toggle para la dirección de despacho
+         */
+        // Esta función se activa al seleccionar el método de entrega "Envío Starken". Recibe un booleano que indica 
+        // si se debe mostrar el formulario de dirección, y el elemento HTML del radio-card para aplicar estilos.
+        // Si el usuario selecciona Starken, muestra el grupo de campos para la dirección 
+        // y hace que sean obligatorios (excepto el campo de departamento/casa). Si el usuario 
+        // selecciona otro método de entrega, oculta el grupo de dirección y limpia los campos para evitar 
+        // que se envíen datos innecesarios al backend. Esto asegura que el DTO que recibe el backend se 
+        // mapee correctamente según la opción de entrega seleccionada.
+        function toggleDireccion(show, element) {
+            activarEstiloRadio(element, 'metodoEntrega');
+            const group = document.getElementById('group-direccion');
+            const inputs = group.querySelectorAll('input, select');
+
+            if (show) {
+                group.classList.remove('d-none');
+                // Hacer dinámicamente obligatorios los campos de dirección
+                inputs.forEach(input => {
+                    if (input.name !== 'deptoCasa') input.required = true;
+                });
+            } else {
+                group.classList.add('d-none');
+                inputs.forEach(input => {
+                    input.required = false;
+                    input.value = ''; // Limpiar campos al ocultar
+                });
+            }
+        }
+
+        /**
+         * Utilidad para activar visualmente el radio-card seleccionado
+         */
+        // Esta función se utiliza para aplicar un estilo visual de "activo" al radio-card seleccionado. 
+        // Recibe el elemento del radio-card que fue clickeado y el nombre del grupo de radio buttons al que 
+        // pertenece. Primero, desactiva el estilo "active" de todos los radio-cards del mismo grupo, y luego 
+        // aplica el estilo "active" solo al elemento seleccionado. Además, asegura que el input radio dentro del card
+        // seleccionado quede marcado como checked para que su valor se envíe correctamente en el formulario.   
+        // Esto mejora la experiencia del usuario al proporcionar un feedback visual claro sobre qué 
+        // opción ha seleccionado, y garantiza que el formulario se envíe con los valores correctos según la 
+        // selección realizada.
+        function activarEstiloRadio(element, name) {
+            const radios = document.querySelectorAll(`input[name="${name}"]`);
+            radios.forEach(r => r.closest('.radio-card').classList.remove('active'));
+            element.classList.add('active');
+            element.querySelector('input').checked = true;
+        }
+
+        /**
+         * Muestra el nombre del archivo seleccionado en la zona Drop
+         */
+        // Esta función se activa cuando el usuario selecciona un archivo a través del input de tipo file.
+        // Recibe el elemento input como parámetro, y luego verifica si se ha seleccionado un
+        // archivo. Si hay un archivo seleccionado, muestra su nombre en el elemento con id "file-name" y aplica 
+        // una clase de estilo para resaltar el texto. Si no hay ningún archivo seleccionado, muestra un mensaje 
+        // indicando que no se ha seleccionado ningún archivo y remueve la clase de estilo. Esto proporciona un 
+        // feedback visual inmediato al usuario sobre el archivo que ha seleccionado para subir, mejorando la experiencia
+        // de uso del formulario.
+        function mostrarNombreArchivo(input) {
+            const display = document.getElementById('file-name');
+            if (input.files.length > 0) {
+                display.innerText = input.files[0].name;
+                display.classList.add('text-gold');
+            } else {
+                display.innerText = "Ningún archivo seleccionado";
+                display.classList.remove('text-gold');
+            }
+        }
+
+        /**
+         * Formateador dinámico de RUT chileno (XXXXXXXX-X)
+         */
+        // Esta función se activa cada vez que el usuario ingresa un carácter en el campo de RUT.
+        // Toma el valor actual del input, elimina cualquier carácter que no sea un número o 
+        // la letra K (mayúscula o minúscula), y luego formatea el RUT para que tenga el formato 
+        // correcto de XXXXXXXX-X. Si el usuario ha ingresado más de un carácter, la función inserta un 
+        // guion antes del último dígito o letra, que corresponde al dígito verificador del RUT. Finalmente,
+        // actualiza el valor del input con el formato. Esto ayuda a los usuarios a ingresar su RUT de manera 
+        // correcta y consistente, reduciendo errores de formato que podrían causar problemas al enviar el formulario
+        // o al procesar el RUT en el backend.
+        function formatRut(input) {
+            let value = input.value.replace(/[^0-9kK]/g, '').toUpperCase();
+            if (value.length > 1) {
+                value = value.slice(0, -1) + '-' + value.slice(-1);
+            }
+            input.value = value;
+        }
+
+        /**
+         * -------------------------------------------------------
+         * ESCUDO DE VALIDACIÓN PARA EL TELÉFONO (COMPLEMENTO THYMELEAF)
+         * --------------------------------------------------------
+         * A nivel de arquitectura, la carga inteligente de este dato ocurre en el HTML. 
+         * Nuestro sistema evalúa: si el cliente ya ingresó su teléfono en el Formulario 1, 
+         * Thymeleaf lo inyecta automáticamente en este campo para ahorrarle trabajo. 
+         * Si lo dejó en blanco, Thymeleaf precarga el prefijo "+569".
+         * * Esta función de Javascript entra a trabajar como un guardia de seguridad en vivo. 
+         * Como este campo ahora es obligatorio, si el usuario decide editar el número precargado, 
+         * la función reacciona a cada tecla que presiona. Destruye automáticamente cualquier letra 
+         * o símbolo extraño y, si el usuario intenta borrar todo, fuerza a que el prefijo "+56" 
+         * se mantenga fijo. Esto asegura que la base de datos siempre reciba el formato correcto.
+         */
+        function validarPrefijoTelefono(input) {
+            input.value = input.value.replace(/[^0-9+]/g, '');
+            if (!input.value.startsWith('+56')) {
+                input.value = '+56';
+            }
+        }
+
+        /**
+         *-------------------------------------------------------------------
+         * FUNCIÓN CORE: ENVIAR FORMULARIO (ORQUESTADOR PRINCIPAL)
+         * ---------------------------------------------------------------------
+         * A nivel de arquitectura frontend, esta función es el núcleo de la Etapa 3.
+         * En lugar de dejar que el navegador envíe los datos a ciegas, interceptamos el evento 
+         * (event.preventDefault) para tomar el control total. Esto nos permite aplicar una 
+         * rigurosa capa de "Validación en el Cliente".
+         * * ¿Por qué es crucial esto para la robustez del sistema? Porque al filtrar errores 
+         * comunes aquí mismo (como un RUT mal escrito o un teléfono incompleto), evitamos 
+         * hacer peticiones inútiles a nuestro servidor Spring Boot. Esto ahorra recursos, 
+         * previene Errores 500 en el backend y le da al cliente una alerta inmediata 
+         * usando SweetAlert2, sin tener que recargar la página.
+         */
+        async function enviarFormularioTecnico(event) {
+            event.preventDefault();
+
+            // 1. VALIDACIÓN ESTRUCTURAL DEL RUT (Ahora con SweetAlert2)
+            // Aplicamos una Expresión Regular (Regex) estricta. Si el formato falla,
+            // detenemos la ejecución (return) y aplicamos 'focus' en el campo para que el usuario lo corrija.
+            const rutInput = document.getElementById('rut-input');
+            const rutRegex = /^[0-9]{7,8}-[0-9Kk]$/;
+            if (!rutRegex.test(rutInput.value)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Formato de RUT Inválido',
+                    text: 'Por favor, use el formato 12345678-9 (con guion y sin puntos).',
+                    confirmButtonColor: '#F2C05F'
+                }).then(() => rutInput.focus());
+                return;
+            }
+
+            // 2. VALIDACIÓN ESTRICTA DEL TELÉFONO (Opcional - Ahora con SweetAlert2)
+            // Verificamos que si hay un dato, contenga el prefijo +56 seguido de 9 dígitos.
+            const telInput = document.querySelector('input[name="telefonoContacto"]');
+            if (telInput && telInput.value !== "" && !/^\+56\d{9}$/.test(telInput.value)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Teléfono Incompleto',
+                    text: 'El formato debe ser +56 seguido de 9 dígitos. Revisa la cantidad de números.',
+                    confirmButtonColor: '#F2C05F'
+                }).then(() => telInput.focus());
+                return;
+            }
+
+            // 3. PROTECCIÓN DE UI Y PREVENCIÓN DE DOBLE CLIC
+            // Cambiamos el estado del botón y lo bloqueamos. Esto otorga un excelente feedback 
+            // visual (el usuario sabe que el sistema está trabajando) y corta de raíz la posibilidad 
+            // de que presione "Enviar" múltiples veces por ansiedad, evitando registros duplicados.
+            const btn = document.getElementById('btnSubmit');
+            const originalTxt = btn.innerText;
+            btn.innerText = "PROCESANDO SOLICITUD...";
+            btn.disabled = true;
+
+            // Validación preventiva de peso de archivo (Límite 20MB - Ahora con SweetAlert2)
+            const archivo3d = document.getElementById('input-archivo-3d');
+            if (archivo3d && archivo3d.files.length > 0) {
+                const pesoMB = archivo3d.files[0].size / (1024 * 1024);
+                if (pesoMB > 20) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Archivo Demasiado Pesado',
+                        html: `Tu archivo pesa <b>${pesoMB.toFixed(1)} MB</b> y el límite es de 20MB.<br><br>Por favor, súbelo a Google Drive, Mega o Dropbox y pega el enlace externo en el campo habilitado para ello.`,
+                        confirmButtonColor: '#F2C05F'
+                    });
+                    btn.innerText = originalTxt; // Restaurar botón
+                    btn.disabled = false;
+                    return;
+                }
+            }
+
+            // 4. PREPARACIÓN DE DATOS BASE
+            // Capturamos el formulario HTML y extraemos la llave principal (el código del pedido)
+            // que ocultamos previamente de forma segura utilizando el motor de Thymeleaf.
+            const form = document.getElementById('formTecnico');
+            const codigoTracker = document.getElementById('hiddenCodigoTracker').value;
+
+
+            /**
+             * ----------------------------------------------------------------
+             * 5. CONSTRUCCIÓN DEL PAYLOAD (MATCH CON FormularioTecnicoDTO)
+             * -----------------------------------------------
+             * Arquitectónicamente, este es el "puente de traducción" entre el Frontend y el Backend.
+             * Recopilamos todos los datos del formulario HTML usando 'FormData'. La regla de oro aquí 
+             * es que las llaves (nombres a la izquierda) de este objeto Javascript deben coincidir 
+             * milimétricamente con las variables de la clase 'FormularioTecnicoDTO' en Spring Boot.
+             * Si hay un error tipográfico, Java ignorará el dato.
+             */
+            const formData = new FormData(form);
+
+            // ------------------------------------------------------------------
+            // SOLUCIÓN "GEMELO FANTASMA": Lógica Inteligente para Desplegables
+            // Como tenemos dos desplegables con el mismo nombre ('necesitaModificacion'), 
+            // debemos preguntarle a la interfaz cuál de los dos está visible realmente.
+            // Si leemos directamente el formData, corremos el riesgo de que el select oculto
+            // sobreescriba la opción elegida con un valor nulo o "No especificado".
+            // ------------------------------------------------------------------
+            let valorNecesidad = "";
+            const divConPieza = document.getElementById('group-con-pieza');
+            if (!divConPieza.classList.contains('d-none')) {
+                // Si el grupo de "Sí tengo pieza" es visible, leemos ese.
+                valorNecesidad = document.getElementById('select-con-pieza').value;
+            } else {
+                // Si el grupo está oculto, significa que eligió "No tengo pieza", leemos el segundo.
+                valorNecesidad = document.getElementById('select-sin-pieza').value;
+            }
+
+            const payload = {
+                // Sincronización con la tabla Clientes (CRM)
+                // Usamos el operador lógico (|| "") como un escudo protector. Si el campo llega a estar nulo, 
+                // forzamos un texto vacío. Esto evita que enviemos un valor 'undefined' que pueda romper 
+                // las validaciones en el servidor.
+                telefonoContacto: formData.get('telefonoContacto') || "",
+                rut: formData.get('rut') || "",
+
+                // Conversión de medidas (Protección de tipos de datos)
+                // Los inputs HTML siempre devuelven texto (Strings), incluso si son de tipo 'number'. 
+                // Usamos 'parseFloat' para transformar ese texto en números decimales reales que Java pueda entender. 
+                // El '|| 0' es otra barrera defensiva: si el cliente dejó la medida en blanco, 
+                // enviamos un cero en lugar de un 'NaN' (Not a Number) que haría colapsar la base de datos.
+                medidaAncho: parseFloat(formData.get('medidaAncho')) || 0,
+                medidaAlto: parseFloat(formData.get('medidaAlto')) || 0,
+                medidaProfundidad: parseFloat(formData.get('medidaProfundidad')) || 0,
+
+                // Volumen de producción (Defensa Matemática)
+                // Aplicamos 'Math.floor' como una limpieza adicional. Si por algún motivo el navegador 
+                // permite enviar decimales en la cantidad (ej. 1.5 unidades), esta función lo redondea 
+                // hacia abajo y asegura que siempre enviaremos un número entero (Integer) a nuestro backend.
+                cantidadUnidades: Math.floor(parseFloat(formData.get('cantidadUnidades')) || 1),
+
+                // Lógica Booleana (Traducción de Radio Buttons)
+                // Los botones de radio en HTML envían las palabras literales "true" o "false" como si fueran texto. 
+                // Spring Boot espera booleanos nativos. Aquí hacemos una validación estricta (=== 'true') 
+                // que convierte ese texto en un valor verdadero/falso real de Javascript antes de viajar por la red.
+                tienePiezaFisica: formData.get('tienePiezaFisica') === 'true',
+                toleranciaCheck: formData.get('toleranciaCheck') === 'true',
+                esCopiaExacta: formData.get('esCopiaExacta') === 'true',
+
+                // Campos de Texto Técnicos
+                // Para las listas desplegables y cajas de comentarios, extraemos el valor directamente.
+                diasEntrega: formData.get('diasEntrega'),
+                
+                // AQUÍ INYECTAMOS NUESTRO VALOR SEGURO QUE EVITA EL "GEMELO FANTASMA"
+                necesitaModificacion: valorNecesidad,
+                
+                materialSolicitado: formData.get('materialSolicitado'),
+                colorSolicitado: formData.get('colorSolicitado'),
+                entornoUso: formData.get('entornoUso'),
+                presupuestoEstimado: formData.get('presupuestoEstimado'),
+                metodoEntrega: formData.get('metodoEntrega'),
+
+                // Capturamos la decisión de archivo (Memoria Visual)
+                modoArchivo: formData.get('modoArchivo'),
+
+                // Dirección y Logística Starken (Campos de Texto Libre)
+                // A nivel de arquitectura, capturamos toda la información de despacho como texto plano (Strings). 
+                // Esta es una decisión consciente para darle flexibilidad al usuario. Las direcciones en Chile 
+                // pueden tener formatos muy variados (lotes, parcelas, indicaciones como "dejar en conserjería"), 
+                // por lo que obligar un formato estricto aquí generaría mucha fricción. Al enviarlo como texto, 
+                // garantizamos que la etiqueta de Starken salga exactamente como el cliente la escribió.
+                region: formData.get('region'),
+                comuna: formData.get('comuna'),
+                calleYNumero: formData.get('calleYNumero'),
+                deptoCasaOficina: formData.get('deptoCasaOficina'),
+                informacionAdicional: formData.get('informacionAdicional'),
+                tipoEnvioStarken: formData.get('tipoEnvioStarken'),
+                // Enlace de Respaldo en la Nube (Modelo 3D)
+                // Si el modelo STL o plano del cliente excede el peso máximo permitido por nuestro servidor, 
+                // habilitamos este campo para que nos pegue un enlace externo (Google Drive, WeTransfer, etc.). 
+                // Esto es vital operativamente, ya que asegura que Luis nunca se quede sin la pieza 
+                // fundamental para poder calcular el presupuesto.
+                linkArchivoFinal: formData.get('linkArchivoFinal')
+            };
+
+            // --- 6. COMUNICACIÓN ASÍNCRONA CON EL BACKEND (API REST) ---
+            // Aquí ejecutamos la llamada real al servidor usando la API Fetch nativa del navegador.
+            // Envolvemos todo en un bloque try/catch para manejar tanto errores lógicos del servidor
+            // como problemas físicos de red (por ejemplo, si el cliente pierde su conexión WiFi).
+            try {
+                // Notificación de procesamiento fluida con SweetAlert
+                Swal.fire({
+                    title: 'Procesando Requerimientos',
+                    text: 'Enviando información técnica al taller...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Se envía al endpoint de la API con el código tracker actual
+                // (aqui modificar al desplegar a produccion: asegurar que la URL de la API coincida con el servidor de producción) 
+                // Utilizamos el método POST y convertimos nuestro payload a un formato JSON puro.
+                const response = await fetch(`/api/v1/pedidos/${codigoTracker}/detalles-tecnicos`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    // --- ETAPA 7: SUBIDA DE ARCHIVO FÍSICO TÉCNICO (Si existe) ---
+                    // Este archivo se considera "tec", porque viene desde el Formulario Técnico.
+                    // El backend lo subirá a Google Drive con nombre:
+                    // LEG-XXXX-tec-nombre_original.ext
+                    const inputArchivo = document.getElementById('input-archivo-3d');
+
+                    if (inputArchivo && inputArchivo.files.length > 0) {
+                        Swal.fire({
+                            title: 'Subiendo Archivo 3D',
+                            text: 'Conectando con Google Drive de forma segura. Esto puede tomar unos segundos...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        const fileFormData = new FormData();
+                        fileFormData.append('archivo3d', inputArchivo.files[0]);
+
+                        try {
+                            const uploadResponse = await fetch(`/api/v1/pedidos/${codigoTracker}/archivos`, {
+                                method: 'POST',
+                                body: fileFormData
+                            });
+
+                            if (!uploadResponse.ok) {
+                                const errorMsg = await uploadResponse.text();
+
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Información Guardada a Medias',
+                                    html: `Los datos técnicos se guardaron, pero el archivo <b>NO se pudo subir a Google Drive</b>.<br><br><b>Detalle técnico:</b><br>${errorMsg}<br><br>Puedes intentar nuevamente o pegar un link externo de Drive / Mega / Dropbox.`,
+                                    confirmButtonText: 'Entendido',
+                                    confirmButtonColor: '#F2C05F'
+                                });
+
+                                btn.innerText = originalTxt;
+                                btn.disabled = false;
+                                return;
+                            }
+
+                            // Respuesta esperada de éxito
+                            const uploadData = await uploadResponse.json();
+                            console.log("Archivo técnico subido correctamente:", uploadData);
+
+                        } catch (uploadError) {
+                            console.error("Error subiendo archivo técnico:", uploadError);
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error de Red (Google Drive)',
+                                text: 'Los datos técnicos se guardaron, pero hubo un problema de conexión al subir el archivo físico. Puedes intentar nuevamente o pegar un link externo de Drive / Mega / Dropbox.',
+                                confirmButtonColor: '#F2C05F'
+                            });
+
+                            btn.innerText = originalTxt;
+                            btn.disabled = false;
+                            return;
+                        }
+                    }
+
+                    // Si el servidor responde con un código de éxito (y se subió el archivo o no había archivo), damos confirmación visual de alto impacto.
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Ingeniería Recibida!',
+                        text: 'Tus especificaciones técnicas han sido registradas en nuestro sistema con éxito.',
+                        confirmButtonText: 'Ir a mi Panel',
+                        confirmButtonColor: '#F2C05F',
+                        allowOutsideClick: false
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Redirigir al visor de seguimiento para que el cliente vea su estado "EN REVISIÓN".
+                            // A nivel arquitectónico, esta redirección automática cierra el ciclo interactivo 
+                            // y le da tranquilidad al cliente al ver su panel actualizado inmediatamente.
+                            window.location.href = `/tracking/${codigoTracker}`;
+                        }
+                    });
+
+                } else {
+                    // Si el servidor detecta un error de regla de negocio o de base de datos
+                    const error = await response.text();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operación Rechazada',
+                        text: `El sistema no pudo procesar el formulario: ${error}`,
+                        confirmButtonColor: '#F2C05F'
+                    });
+                    
+                    // UX Defensiva: Restauramos el botón a su estado original (texto normal y habilitado) 
+                    // en caso de error. Esto permite al usuario corregir su equivocación y volver 
+                    // a intentar sin tener que recargar toda la página web y perder lo que escribió.
+                    btn.innerText = originalTxt;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                // Captura fallas de red catastróficas (sin internet o si el backend está apagado)
+                console.error("Error en la conexión:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Fallo de Conexión',
+                    text: 'No logramos contactar con el servidor central de Legión 3D. Por favor, verifica tu conexión a internet.',
+                    confirmButtonColor: '#F2C05F'
+                });
+                
+                // UX Defensiva: Restauramos el botón en caso de caída de red
+                btn.innerText = originalTxt;
+                btn.disabled = false;
+            }
+        }
+
+        /**
+         * ----------------------------------------------------
+         * NOTA ARQUITECTÓNICA SOBRE 'linkArchivoFinal'
+         * ------------------------------------------------------------------
+         * Este campo es un simple input de tipo 'url', pero es una válvula de escape operativa. 
+         * Permite que el usuario utilice nubes externas (como Google Drive, Mega o Dropbox) 
+         * sin saturar el disco duro ni el ancho de banda de nuestro servidor Spring Boot.
+         * Es el complemento ideal y obligatorio para archivos industriales que superen los 100MB.
+         */
+    </script>
+
+</body>
+
+</html>

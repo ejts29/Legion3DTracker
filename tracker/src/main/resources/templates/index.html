@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legión 3D - Panel de Control</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <style>
+     /* =========================================================   
+    REDUCCIÓN GLOBAL DE ESCALA (90% ZOOM)
+    Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+    (botones, márgenes, textos) se encoge proporcionalmente.
+    ========================================================= */
+    html {
+        font-size: 90% !important; 
+    }   
+    </style>
+</head>
+<!------LEGIÓN 3D TRACKER (SISTEMA MIDDLEWARE) : PANEL DE CONTROL CENTRAL-------
+ Ubicación: src/main/resources/templates/index.html
+  Este archivo representa el Dashboard o Tablero Principal de la administración. 
+  Como equipo, diseñamos esta interfaz para centralizar las herramientas de 
+  uso diario: el rastreo logístico rápido y la comunicación directa por 
+  correo electrónico, optimizando la operatividad del taller de Luis.
+-->
+<body>
+ <!----ESTRUCTURA PRINCIPAL: DASHBOARD ADMINISTRATIVO---
+ Este contenedor organiza los widgets principales del sistema mediante el 
+  sistema de grillas de Bootstrap (Grid System), asegurando que las 
+  herramientas se adapten dinámicamente al tamaño de la pantalla.
+-->
+<div class="container-fluid">
+    <div class="row">
+        <!-- Inyección de navegación lateral modular -->
+        <div th:replace="~{layout/sidebar :: sidebar}"></div>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <!-- Inyección de cabecera fija con datos de sesión -->
+            <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+            <div class="row mt-4">
+                <!-- 
+                  WIDGET 1: VISOR DE LOGÍSTICA Y ESTADO
+                  Diseñado para proporcionar respuestas rápidas a clientes por teléfono 
+                  o chat sin tener que navegar por todo el historial.
+                -->
+                <div class="col-lg-6 mb-4">
+                    <div class="section-container shadow-lg h-100">
+                        <div class="section-title"><i class="fas fa-truck-loading me-2"></i> Visor de Logística y Estado</div>
+                        
+                        <div id="visorLogistica">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label text-warning small fw-bold">BUSCAR EXPEDIENTE (CÓDIGO O RUT) *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-secondary text-warning"><i class="fas fa-search"></i></span>
+                                        <!-- ID 'logBuscador': Punto de entrada para el motor de búsqueda asíncrona -->
+                                        <input type="text" id="logBuscador" class="form-control form-control-l3d text-uppercase" placeholder="Ej: LEG-7A1X o 12345678-9">
+                                    </div>
+                                </div>
+                                
+                                <!-- 
+                                  ÁREA DE RESULTADOS DINÁMICOS
+                                  Esta sección permanece oculta (d-none) hasta que el motor de JavaScript 
+                                  encuentra una coincidencia en la base de datos de pedidos.
+                                -->
+                                <div id="areaResultados" class="col-md-12 mt-3 d-none">
+                                    <div class="p-3 bg-dark border border-secondary rounded shadow-sm">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <!-- Inyección de datos del cliente y código de seguimiento -->
+                                            <h6 class="text-info mb-1 fw-bold" id="resNombreRUT">Nombre del Cliente | RUT</h6>
+                                            <span class="badge bg-secondary font-monospace" id="resCodigo">LEG-XXXX</span>
+                                        </div>
+                                        <p class="small text-warning fw-bold mb-2" id="resEstado">ESTADO: ---</p>
+                                        
+                                        <hr class="border-secondary my-2">
+                                        
+                                        <div class="mb-2">
+                                            <p class="small text-white-50 mb-0 fw-bold"><i class="fas fa-map-marker-alt me-1"></i> DIRECCIÓN DE ENVÍO:</p>
+                                            <p class="small text-white" id="resDireccion">---</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <p class="small text-white-50 mb-0 fw-bold"><i class="fas fa-truck me-1"></i> LOGÍSTICA SELECCIONADA:</p>
+                                            <p class="small text-white" id="resMetodo">---</p>
+                                        </div>
+
+                                        <!-- 
+                                          CONTENEDORES DE ACCIÓN RÁPIDA (Wrappers)
+                                          Permiten visualizar comprobantes de pago o links de seguimiento externos 
+                                          solo si los datos existen en el expediente.
+                                        -->
+                                        <div class="d-flex gap-2 mt-3">
+                                            <div id="wrapperPago" class="flex-fill d-none">
+                                                <a href="#" id="linkPago" target="_blank" class="btn btn-sm btn-outline-info w-100">
+                                                    <i class="fas fa-receipt me-1"></i> Ver Pago
+                                                </a>
+                                            </div>
+                                            <div id="wrapperEnvio" class="flex-fill d-none">
+                                                <a href="#" id="linkEnvio" target="_blank" class="btn btn-sm btn-outline-success w-100">
+                                                    <i class="fas fa-truck-fast me-1"></i> Ver Envío
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Feedback para el usuario: Se activa si la búsqueda no arroja coincidencias -->
+                                <div id="msgNoEncontrado" class="col-md-12 mt-3 d-none">
+                                    <div class="alert alert-dark border-secondary text-center small py-2">
+                                        <i class="fas fa-exclamation-circle me-1 text-warning"></i> No se encontró ningún pedido con ese criterio.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 
+                  WIDGET 2: ENVIAR DOCUMENTACIÓN LIBRE
+                  Herramienta de comunicación externa que permite enviar correos electrónicos 
+                  directamente desde el sistema, con soporte para múltiples archivos adjuntos.
+                -->
+                <div class="col-lg-6 mb-4">
+                    <div class="section-container shadow-lg h-100">
+                        <div class="section-title"><i class="fas fa-envelope-open-text me-2"></i> Enviar Documentación Libre</div>
+                        
+                        <!-- Formulario de envío vinculado a la función asíncrona enviarCorreoLibre -->
+                        <form id="formCorreo" onsubmit="enviarCorreoLibre(event)">
+                            <div class="mb-3">
+                                <label class="form-label text-info small fw-bold">CORREO ELECTRÓNICO DESTINO *</label>
+                                <input type="email" id="mailDestino" class="form-control form-control-l3d" placeholder="ejemplo@cliente.com o proveedor" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-gold">ASUNTO *</label>
+                                <input type="text" id="mailAsunto" class="form-control form-control-l3d" placeholder="Ej: Factura o Archivo STL" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-white-50">MENSAJE *</label>
+                                <textarea id="mailMensaje" class="form-control form-control-l3d" rows="4" placeholder="Escribe el cuerpo del correo..." required></textarea>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-white-50">ADJUNTAR ARCHIVO FÍSICO (OPCIONAL)</label>
+                                <!-- Campo de archivos: Soporta la selección múltiple de documentos técnicos o facturas -->
+                                <input type="file" id="mailArchivo" class="form-control form-control-l3d" multiple>
+                            </div>
+                            <button type="submit" id="btnCorreo" class="btn btn-l3d-gold w-100 py-2 fw-bold">ENVIAR EMAIL LIBRE</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/api.js}"></script>
+    <script th:src="@{/js/main.js}"></script>
+
+<script>
+        /* 
+              MÓDULO 1: VISOR INTELIGENTE DE LOGÍSTICA
+
+           Este módulo gestiona la búsqueda reactiva de expedientes.
+           Utiliza un evento de escucha (EventListener) de tipo 'input', lo que 
+           permite que los resultados aparezcan mientras el usuario escribe, 
+           mejorando drásticamente la velocidad de respuesta para Luis.
+        */
+        document.getElementById('logBuscador').addEventListener('input', async (e) => {
+            // CONSTANTES Y VARIABLES INICIALES:
+            // 'busqueda': Almacena el valor actual del input eliminando espacios innecesarios con .trim().
+            const busqueda = e.target.value.trim();
+            const areaResultados = document.getElementById('areaResultados');
+            const msgNoEncontrado = document.getElementById('msgNoEncontrado');
+            
+            /* 
+               LÓGICA DE VALIDACIÓN (IF):
+               Para evitar peticiones excesivas al servidor, la búsqueda solo se dispara 
+               si el usuario ha ingresado al menos 4 caracteres (longitud mínima 
+               de un código LEG-X o parte de un RUT).
+            */
+            if (busqueda.length < 4) {
+                areaResultados.classList.add('d-none');
+                msgNoEncontrado.classList.add('d-none');
+                return; // Detiene la ejecución aquí si no se cumple la condición.
+            }
+
+            /* 
+               BLOQUE TRY-CATCH: Mecanismo de seguridad crítico.
+               El 'try' intenta realizar la comunicación con la API. 
+               Si ocurre un fallo de red o el servidor no responde, el 'catch' 
+               atrapa el error para evitar que la interfaz de usuario se rompa.
+            */
+            try {
+                // LLAMADA ASÍNCRONA (AWAIT): Se comunica con el controlador de Java.
+                // (aqui modificar al desplegar a produccion: asegurar que el endpoint /api/v1/pedidos sea el correcto para el entorno final) -->
+                const res = await fetch('/api/v1/pedidos');
+                // SERIALIZACIÓN: Convierte la respuesta del servidor en un objeto JSON manejable.
+                const pedidos = await res.json();
+                
+                /* 
+                   ALGORITMO DE BÚSQUEDA (.find): 
+                   Busca dentro del array de pedidos basándose en dos criterios:
+                   1. Si el código de seguimiento coincide (ignorando mayúsculas/minúsculas).
+                   2. Si el RUT del cliente contiene la cadena buscada.
+                */
+                const p = pedidos.find(item => 
+                    item.codigoSeguimiento.toUpperCase().includes(busqueda.toUpperCase()) || 
+                    (item.cliente && item.cliente.rut && item.cliente.rut.includes(busqueda))
+                );
+
+                /* 
+                   LÓGICA CONDICIONAL DE RESULTADOS (IF/ELSE):
+                   Si se encuentra una coincidencia (p es verdadero), se inyectan 
+                   los datos en el DOM. Si no, se muestra el mensaje de error.
+                */
+                if (p) {
+                    msgNoEncontrado.classList.add('d-none');
+                    areaResultados.classList.remove('d-none');
+                    
+                    // INYECCIÓN DE DATOS DINÁMICOS:
+                    // Se reemplazan los IDs de texto con la información real del expediente.
+                    document.getElementById('resCodigo').innerText = p.codigoSeguimiento;
+                    
+                    document.getElementById('resNombreRUT').innerText = `${p.cliente.nombre} | ${p.cliente.rut || 'RUT NO REGISTRADO'}`;
+                    document.getElementById('resEstado').innerText = `ESTADO: ${p.estadoActual}`;
+                    
+                    /* 
+                       ANIDACIÓN TÉCNICA (IF p.detallesTecnicos):
+                       Verifica si el objeto tiene detalles técnicos para evitar errores 
+                       de 'undefined' al intentar leer la dirección o el método.
+                    */
+                    if(p.detallesTecnicos) {
+                        const dt = p.detallesTecnicos;
+                        const calle = dt.calleYNumero || 'N/A';
+                        const depto = dt.deptoCasaOficina ? `, ${dt.deptoCasaOficina}` : '';
+                        const comuna = dt.comuna || 'N/A';
+                        const region = dt.region || 'N/A';
+                        
+                        document.getElementById('resDireccion').innerText = `${calle}${depto} - ${comuna}, ${region}`;
+                        
+                        let txtLogistica = dt.metodoEntrega || 'Por definir';
+                        // Concatenación condicional para el tipo de envío Starken.
+                        if(dt.tipoEnvioStarken) txtLogistica += ` (${dt.tipoEnvioStarken})`;
+                        document.getElementById('resMetodo').innerText = txtLogistica;
+                    } else {
+                        // Respuesta por defecto si el expediente existe pero no tiene datos de Formulario 2.
+                        document.getElementById('resDireccion').innerText = "El cliente aún no ingresa sus datos técnicos.";
+                        document.getElementById('resMetodo').innerText = "---";
+                    }
+
+                    // GESTIÓN DE ENLACES EXTERNOS (COMPROBANTE DE PAGO):
+                    const wrapPago = document.getElementById('wrapperPago');
+                    const linkPago = document.getElementById('linkPago');
+                    if(p.linkComprobantePago) {
+                        wrapPago.classList.remove('d-none');
+                        linkPago.href = p.linkComprobantePago;
+                    } else {
+                        wrapPago.classList.add('d-none');
+                    }
+
+                    // GESTIÓN DE ENLACES DE ENVÍO (TRACKING STARKEN/OTRO):
+                    const wrapEnvio = document.getElementById('wrapperEnvio');
+                    const linkEnvio = document.getElementById('linkEnvio');
+                    if(p.linkComprobanteEnvio) {
+                        wrapEnvio.classList.remove('d-none');
+                        // Lógica de detección de URL:
+                        // Si el texto contiene "http", se comporta como un enlace directo.
+                        if (p.linkComprobanteEnvio.includes('http')) {
+                            const url = p.linkComprobanteEnvio.match(/https?:\/\/[^\s]+/)[0];
+                            linkEnvio.href = url;
+                            linkEnvio.innerHTML = '<i class="fas fa-truck-fast me-1"></i> Ver Envío';
+                            linkEnvio.removeAttribute('onclick');
+                        } else {
+                            // Si es texto descriptivo (ej. "Retiro"), muestra una alerta informativa.
+                            linkEnvio.href = "#";
+                            linkEnvio.innerHTML = '<i class="fas fa-info-circle me-1"></i> Info Envío';
+                            linkEnvio.setAttribute('onclick', `alert('Información logística:\\n${p.linkComprobanteEnvio}'); return false;`);
+                        }
+                    } else {
+                        wrapEnvio.classList.add('d-none');
+                    }
+
+                } else {
+                    // BLOQUE ELSE: Se ejecuta cuando no hay coincidencia en la búsqueda.
+                    areaResultados.classList.add('d-none');
+                    msgNoEncontrado.classList.remove('d-none');
+                }
+            } catch (err) {
+                // CAPTURA DE ERROR: Registra fallos de red en la consola del navegador.
+                console.error("Error en la búsqueda logística:", err);
+            }
+        });
+
+        /* 
+-----------------------------------------------------
+           MÓDULO 2: ENVÍO DE CORREO LIBRE (CON ADJUNTOS)
+           -----------------------------
+           Función asíncrona que maneja el envío de emails administrativos.
+        */
+        async function enviarCorreoLibre(event) {
+            // PREVENT DEFAULT: Evita que la página se recargue al enviar el formulario (UX).
+            event.preventDefault();
+            const btn = document.getElementById('btnCorreo');
+            const textoOriginal = btn.innerHTML;
+
+            /* 
+               FORM DATA: Objeto especializado para enviar archivos físicos y campos 
+               de texto en una sola petición multipart/form-data.
+            */
+            const formData = new FormData();
+            formData.append('destinatario', document.getElementById('mailDestino').value.trim());
+            formData.append('asunto', document.getElementById('mailAsunto').value.trim());
+            formData.append('mensaje', document.getElementById('mailMensaje').value.trim());
+            
+            // Lógica de archivos adjuntos (Bucle FOR):
+            const archivoMail = document.getElementById('mailArchivo');
+            if(archivoMail.files.length > 0) {
+                // Itera sobre todos los archivos seleccionados para añadirlos al envío.
+                for(let i=0; i < archivoMail.files.length; i++){
+                    formData.append('adjuntos', archivoMail.files[i]);
+                }
+            }
+
+            // UI FEEDBACK: Deshabilita el botón y muestra un spinner mientras viaja el correo.
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ENVIANDO...';
+            btn.disabled = true;
+
+            try {
+                // PETICIÓN POST: Envía el paquete de datos al controlador de correos.
+                // (aqui modificar al desplegar a produccion: actualizar la URL de envío de correos al dominio oficial)
+                const response = await fetch('/api/v1/emails/enviar-libre', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if(response.ok) {
+                    alert("✅ ¡Correo enviado con éxito desde el servidor!");
+                    document.getElementById('formCorreo').reset(); // Limpia el formulario tras el éxito.
+                } else {
+                    // Manejo de errores específicos del servidor de correo.
+                    const errorData = await response.json();
+                    alert(`❌ Error: ${errorData.error || 'No se pudo enviar el correo.'}`);
+                }
+            } catch (error) {
+                // Error de red (ej. servidor de correos caído o falta de conexión).
+                alert("❌ Error de red: No se pudo contactar con el servicio de correo.");
+            } finally {
+                // BLOQUE FINALLY: Se ejecuta siempre para restaurar el botón a su estado original.
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+    </script>
+
+    <!-- SCRIPTS CONDICIONALES DE THYMELEAF (Alertas de parámetros de URL) -->
+    <script th:if="${param.exito}">
+        // Se activa si el servidor redirige con el parámetro ?exito en la URL.
+        alert("✅ ¡Formulario enviado con éxito! Revisa tu correo, te avisaremos cuando la cotización esté lista.");
+    </script>
+
+    <script th:if="${param.error}">
+        // Se activa si el servidor detecta un error en los parámetros de entrada.
+        alert("❌ Hubo un problema al procesar tu solicitud. Por favor, verifica tu código e intenta nuevamente.");
+    </script>
+
+</body>
+</html>

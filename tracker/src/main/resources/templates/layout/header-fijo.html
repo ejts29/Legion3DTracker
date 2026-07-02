@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- 
+        FRAGMENTO: header-l3d header-fijo.html
+        Descripción: Este fragmento Thymeleaf define el encabezado fijo del 
+        dashboard administrativo de Legion3D. Incluye el título, el nombre del operador 
+        (estático por ahora) y un buscador rápido que permite localizar solicitudes por ID, RUT o nombre.
+         Además, contiene una grilla de tarjetas que muestran contadores en tiempo real para cada estado del 
+         pipeline de pedidos, con animaciones de alerta para estados críticos como "Nuevas" y "Pagos".     
+
+        Este bloque se inserta en todas las vistas administrativas para mantener la consistencia.
+    -->
+    <div th:fragment="header-l3d">
+        <style>
+                /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+
+
+            /* 
+               ANIMACIONES DE ALERTAS DE ESTADO (Visual Feedback)
+               Estas animaciones 'pulse' se utilizan para captar la atención del operador
+               sobre pedidos que requieren acción inmediata (Nuevos o Pagados).
+            */
+            @keyframes pulse-red {
+                0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); }
+                70% { box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+            }
+
+            @keyframes pulse-green {
+                0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+                70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+            }
+
+            /* Clases aplicadas dinámicamente mediante Thymeleaf */
+            .pulse-alert {
+                animation: pulse-red 2s infinite;
+                border-color: #ff4444 !important;
+                background-color: #2a0a0a !important;
+            }
+
+            .pulse-alert-green {
+                animation: pulse-green 2s infinite;
+                border-color: #4ade80 !important;
+                background-color: #1a2e1a !important;
+            }
+
+            .text-alert { color: #ff4444 !important; }
+            .text-alert-label { color: #ff8888 !important; }
+            .text-gold { color: #F2C05F !important; }
+        </style>
+
+        <!-- SECCIÓN DE TÍTULO Y OPERADOR -->
+        <div class="row align-items-center pt-4 pb-3 mb-4 border-bottom border-secondary">
+            <div class="col-md-3">
+                <h1 class="h4 fw-bold mb-0">Dashboard General</h1>
+                <!-- 
+                    NOTAS DE DESPLIEGUE: 
+                    Actualmente el nombre 'Luis' es estático. Al desplegar a producción, 
+                    este campo debería obtenerse del objeto de sesión del usuario autenticado.
+                -->
+                <p class="small text-muted mb-0">Operador: Luis</p>
+            </div>
+
+            <!-- SECCIÓN DE BÚSQUEDA RÁPIDA (Middleware Visual) -->
+            <div class="col-md-9">
+                <div class="header-tracker"
+                    style="background: rgba(242, 192, 95, 0.05); border: 1px solid #F2C05F; border-radius: 10px; padding: 10px 20px;">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+
+                        <div class="d-flex align-items-center">
+                            <label class="form-label mb-0 me-2 fw-bold text-gold"
+                                style="white-space: nowrap; font-size: 0.75rem;">BUSCAR SOLICITUD:</label>
+                            <!-- 
+                                La función 'buscarSolicitudRapida' (JS) se dispara al presionar una tecla,
+                                permitiendo búsquedas instantáneas por ID, RUT o Nombre.
+                            -->
+                            <input type="text" id="quickSearchInput" class="form-control form-control-sm text-uppercase"
+                                style="width: 140px; background-color: #0a0a0a; border: 1px solid #333; color: white;"
+                                placeholder="ID, RUT, NOM..." onkeypress="buscarSolicitudRapida(event)">
+                        </div>
+
+                        <!-- PANEL DE RESULTADOS DE BÚSQUEDA (Se llena dinámicamente vía JS) -->
+                        <div class="d-flex flex-wrap gap-3 align-items-center" style="font-size: 0.70rem;">
+                            <div class="fw-bold">ID: <span id="quickSearchIdDisplay" class="text-secondary">---</span></div>
+                            <div class="fw-bold">ESTADO: <span id="quickSearchStatus" class="text-secondary">ESPERANDO...</span></div>
+                            <div class="fw-bold">CLIENTE: <span id="quickSearchClient" class="text-secondary">---</span></div>
+
+                            <!-- Campos extra ocultos (d-none) que se activan al encontrar un resultado -->
+                            <div class="fw-bold text-light d-none" id="qs-extra-email">
+                                <i class="fas fa-envelope text-gold me-1"></i> <span id="quickSearchEmail"></span>
+                            </div>
+                            <div class="fw-bold text-light d-none" id="qs-extra-phone">
+                                <i class="fas fa-phone text-gold me-1"></i> <span id="quickSearchPhone"></span>
+                            </div>
+                            <div class="fw-bold text-light d-none" id="qs-extra-rut">
+                                <i class="fas fa-id-card text-gold me-1"></i> <span id="quickSearchRut"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRILLA DE CONTADORES (Fila de Estados del Pipeline) -->
+        <div class="row g-2 mb-4 text-center">
+            
+            <!-- TARJETA: NUEVAS SOLICITUDES (Usa th:classappend para activar la alerta roja pulsante) -->
+            <div class="col">
+                <div id="card-nuevas" class="card-l3d h-100 position-relative"
+                    th:classappend="${conteoNuevas != null and conteoNuevas > 0} ? 'pulse-alert' : ''"
+                    onclick="window.location.href='/solicitudes/triaje'"
+                    style="background-color: #141414; border: 1px solid #252525; border-radius: 12px; padding: 0.8rem; transition: 0.3s; cursor: pointer;">
+                    <!-- Punto rojo de notificación -->
+                    <span id="dot-nuevas" th:classappend="${conteoNuevas == null or conteoNuevas == 0} ? 'd-none' : ''"
+                        class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-dark rounded-circle"></span>
+                    <small id="label-nuevas"
+                        th:classappend="${conteoNuevas != null and conteoNuevas > 0} ? 'text-alert-label' : ''"
+                        style="color: #fff; text-transform: uppercase; font-size: 0.55rem; font-weight: 700;">Nuevas solicitudes</small>
+                    <h4 id="contador-nuevas" th:text="${conteoNuevas != null ? conteoNuevas : 0}"
+                        th:classappend="${conteoNuevas != null and conteoNuevas > 0} ? 'text-alert' : ''"
+                        style="color: #F2C05F; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: PENDIENTE DATOS TÉCNICOS -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/revision-datos-tecnicos'"
+                    style="background-color: #0c1a2b; border: 1px solid #1a3a5a; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #38bdf8; text-transform: uppercase; font-size: 0.55rem; font-weight: 800;">DATOS TÉCNICOS</small>
+                    <h4 id="contador-pendiente" th:text="${conteoPendiente != null ? conteoPendiente : 0}"
+                        style="color: #38bdf8; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: EN REVISIÓN -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/revision-datos-tecnicos'"
+                    style="background-color: #141414; border: 1px solid #252525; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #fff; text-transform: uppercase; font-size: 0.55rem; font-weight: 700;">En Revisión</small>
+                    <h4 id="contador-revision" th:text="${conteoRevision != null ? conteoRevision : 0}"
+                        style="color: #F2C05F; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: COTIZACIÓN -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/cotizaciones'"
+                    style="background-color: #141414; border: 1px solid #252525; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #fff; text-transform: uppercase; font-size: 0.55rem; font-weight: 700;">Cotización</small>
+                    <h4 id="contador-cotizacion" th:text="${conteoCotizacion != null ? conteoCotizacion : 0}"
+                        style="color: #F2C05F; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: ESPERANDO PAGO -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/historial'"
+                    style="background-color: #1a150c; border: 1px solid #3d2f13; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #fcd34d; text-transform: uppercase; font-size: 0.55rem; font-weight: 800;">Esperando Pago</small>
+                    <h4 id="contador-esperando" th:text="${conteoEsperandoPago != null ? conteoEsperandoPago : 0}"
+                        style="color: #fcd34d; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: PAGOS (Alerta verde pulsante si hay pagos por validar) -->
+            <div class="col">
+                <div id="card-pagos" class="card-l3d h-100"
+                    th:classappend="${conteoPagos != null and conteoPagos > 0} ? 'pulse-alert-green' : ''"
+                    onclick="window.location.href='/solicitudes/produccion'"
+                    style="background-color: #1a2e1a; border: 1px solid #2d5a2d; border-radius: 12px; padding: 0.8rem; box-shadow: 0 0 10px rgba(45, 90, 45, 0.3); cursor: pointer;">
+                    <small style="color: #86efac; text-transform: uppercase; font-size: 0.55rem; font-weight: 800;">Pagos</small>
+                    <h4 id="contador-pagos" th:text="${conteoPagos != null ? conteoPagos : 0}"
+                        style="color: #4ade80; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: PRODUCCIÓN -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/produccion'"
+                    style="background-color: #141414; border: 1px solid #252525; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #fff; text-transform: uppercase; font-size: 0.55rem; font-weight: 700;">Producción</small>
+                    <h4 id="contador-produccion" th:text="${conteoProduccion != null ? conteoProduccion : 0}"
+                        style="color: #F2C05F; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- TARJETA: DESPACHO -->
+            <div class="col">
+                <div class="card-l3d h-100"
+                    onclick="window.location.href='/solicitudes/produccion'"
+                    style="background-color: #0c2033; border: 1px solid #1a4b77; border-radius: 12px; padding: 0.8rem; cursor: pointer;">
+                    <small style="color: #7dd3fc; text-transform: uppercase; font-size: 0.55rem; font-weight: 800;">Despacho</small>
+                    <h4 id="contador-despacho" th:text="${conteoListos != null ? conteoListos : 0}"
+                        style="color: #38bdf8; font-weight: 800; margin-top: 5px;">0</h4>
+                </div>
+            </div>
+
+            <!-- BADGE DE VENTAS NETAS (Resumen financiero rápido) -->
+            <div class="col">
+                <div class="ventas-badge h-100 d-flex flex-column justify-content-center"
+                    style="background: linear-gradient(45deg, #1a1a1a, #000); border: 1px solid #F2C05F; padding: 0.8rem; border-radius: 12px;">
+                    <small class="fw-bold" style="color: #F2C05F; font-size: 0.55rem;">VENTAS NETAS</small>
+                    <h5 id="contador-ventas" class="text-white m-0"
+                        th:text="${totalVentas != null ? '$' + totalVentas : '$0'}" style="font-weight: 800;">$0</h5>
+                </div>
+            </div>
+        </div>
+
+ <script>
+            // ---------------------------------------------------------
+            // BUSCADOR TOTAL (ID, RUT, CORREO, NOMBRE, SEGUIMIENTO)
+            // ---------------------------------------------------------
+            // Esta función asíncrona es el motor de búsqueda global del Dashboard.
+            // Permite al administrador localizar cualquier solicitud mediante múltiples
+            // criterios de búsqueda, normalizando los datos (como el RUT) para 
+            // garantizar que los resultados aparezcan sin importar el formato ingresado.
+            async function buscarSolicitudRapida(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+
+                    // Captura el valor y limpia espacios
+                    const busqueda = document.getElementById('quickSearchInput').value.trim().toLowerCase();
+                    const busquedaUpper = busqueda.toUpperCase();
+
+                    // Referencias a los elementos de la interfaz
+                    const idSpan = document.getElementById('quickSearchIdDisplay');
+                    const statusSpan = document.getElementById('quickSearchStatus');
+                    const clientSpan = document.getElementById('quickSearchClient');
+                    const eEmail = document.getElementById('qs-extra-email');
+                    const ePhone = document.getElementById('qs-extra-phone');
+                    const eRut = document.getElementById('qs-extra-rut');
+
+                    // Reset de campos UI antes de buscar
+                    eEmail.classList.add('d-none');
+                    ePhone.classList.add('d-none');
+                    eRut.classList.add('d-none');
+                    idSpan.innerText = "---";
+                    idSpan.className = "text-secondary";
+                    //el if siguiente es para evitar hacer la consulta a la API si el campo de búsqueda está 
+                    //vacío, mostrando un estado de "ESPERANDO..." y evitando una llamada innecesaria al servidor
+                    if (!busqueda) {
+                        statusSpan.innerText = "ESPERANDO..."; statusSpan.className = "text-secondary";
+                        clientSpan.innerText = "---"; clientSpan.className = "text-secondary";
+                        return;
+                    }
+
+                    statusSpan.innerText = "BUSCANDO..."; statusSpan.className = "text-info";
+                    clientSpan.innerText = "...";
+
+                    // Llamada a la API para obtener el listado completo de pedidos (aquí se podría optimizar con un endpoint 
+                    //específico de búsqueda en producción) 
+                    // usamos try-catch para manejar errores de red o problemas con la API, mostrando un mensaje de error en la
+                    // interfaz si algo falla, como problemas físicos de red (por ejemplo, si el cliente pierde su conexión WiFi). 
+
+                    try {
+                        // (aqui modificar al desplegar a produccion: asegurar que la ruta de la API sea relativa o apunte al dominio final)
+                        const response = await fetch(`/api/v1/pedidos`);
+                        if (response.ok) {
+                            const pedidos = await response.json();
+
+                            // Lógica de búsqueda "Total" mediante filtrado de arreglos en JS
+                            const p = pedidos.find(x => {
+                                const cli = x.cliente || {};
+                                const dt = x.detallesTecnicos || {};
+
+                                // Normalizamos RUT para búsqueda (quitamos puntos y guiones si existen)
+                                const rutLimpio = (cli.rut || "").replace(/[.-]/g, "").toLowerCase();
+                                const busquedaLimpia = busqueda.replace(/[.-]/g, "");
+
+                                return (
+                                    (x.id && x.id.toString() === busqueda) || // Busca por ID exacto
+                                    (x.codigoSeguimiento && x.codigoSeguimiento.toUpperCase().includes(busquedaUpper)) || // Seguimiento
+                                    (cli.nombre && cli.nombre.toLowerCase().includes(busqueda)) || // Nombre cliente
+                                    (cli.email && cli.email.toLowerCase().includes(busqueda)) || // Email
+                                    (rutLimpio && rutLimpio.includes(busquedaLimpia)) || // RUT cliente
+                                    (dt.rut && dt.rut.toLowerCase().includes(busqueda)) // RUT en detalles técnicos
+                                );
+                            });
+
+                            if (p) {
+                                // 1. Mostrar ID encontrado
+                                idSpan.innerText = p.id;
+                                idSpan.className = "text-white fw-bold";
+
+                                // 2. Manejo Dinámico de Estados y Colores en el buscador
+                                statusSpan.innerText = p.estadoActual || "SIN ESTADO";
+                                if (p.estadoActual === 'ENTREGADO' || p.estadoActual === 'APROBADO') {
+                                    statusSpan.className = "text-success";
+                                } else if (p.estadoActual === 'RECHAZADA') {
+                                    statusSpan.className = "text-danger";
+                                } else {
+                                    statusSpan.className = "text-warning";
+                                }
+
+                                // 3. Datos del Cliente y Mapeo de Objetos
+                                const dt = p.detallesTecnicos || {};
+                                const cli = p.cliente || {};
+                                // Mostramos el nombre del cliente o "Desconocido" si no está disponible
+                                clientSpan.innerText = cli.nombre || "Desconocido";
+                                clientSpan.className = "text-white";
+                                // Campos extra: Email, Teléfono y RUT (si existen, o mostrar "Sin datos" si no están disponibles)
+                                document.getElementById('quickSearchEmail').innerText = cli.email || 'Sin correo';
+                                document.getElementById('quickSearchPhone').innerText = cli.telefono || dt.telefonoContacto || 'Sin teléfono';
+                                document.getElementById('quickSearchRut').innerText = cli.rut || dt.rut || 'Sin RUT';
+
+                                // Mostrar bloques de datos extra al encontrar coincidencia
+                                eEmail.classList.remove('d-none');
+                                ePhone.classList.remove('d-none');
+                                eRut.classList.remove('d-none');
+
+                                //usamos este else para manejar el caso en que no se encuentra ningún resultado, 
+                                //mostrando un mensaje claro de "NO ENCONTRADO" y evitando mostrar datos residuales
+                                // de búsquedas anteriores, como el nombre del cliente o el estado. Esto mejora la 
+                                //experiencia del usuario al proporcionar feedback inmediato sobre la búsqueda realizada.
+                            } else {
+                                statusSpan.innerText = "NO ENCONTRADO"; statusSpan.className = "text-danger";
+                                clientSpan.innerText = "---"; clientSpan.className = "text-muted";
+                            }
+                        }
+                        //este catch captura errores que puedan ocurrir durante la llamada a la API, como problemas de 
+                        //red o si el servidor no responde, mostrando un mensaje de error en la interfaz para informar 
+                        //al usuario que la búsqueda no pudo completarse debido a un problema con la conexión o el servidor, 
+                        //en lugar de dejarlo sin feedback o con datos residuales de búsquedas anteriores. 
+                    } catch (error) {
+                        console.error("Error en búsqueda rápida:", error);
+                        statusSpan.innerText = "ERROR API"; statusSpan.className = "text-danger";
+                    }
+                }
+            }
+
+
+            // ---------------------------------------------------------
+            // RADAR REACTIVO (REFRESCO AUTOMÁTICO DE CONTADORES)
+            // ---------------------------------------------------------
+            // Este sistema de monitoreo automático permite que el Dashboard sea reactivo.
+            // Utiliza una técnica de 'polling' para verificar cambios en la base de datos
+            // y actualiza los indicadores visuales y contadores sin recargar la página.
+
+            /**
+             * VARIABLE: estadoGlobalPrevio
+             * Este let actúa como una "huella digital" del estado actual de los pedidos.
+             * Permite detectar cambios de manera eficiente sin necesidad de comparar 
+             * objetos completos o hacer llamadas innecesarias al DOM, lo que optimiza 
+             * el rendimiento del sistema de monitoreo al evitar procesos repetitivos.
+             */
+            let estadoGlobalPrevio = null;
+
+            /**
+             * FUNCIÓN: monitorearRadarGlobal
+             * Definimos una función asíncrona (async) que se encargará de consultar 
+             * periódicamente el estado de los pedidos en el servidor.
+             * 
+             * Usamos try-catch para el manejo de excepciones: el bloque 'try' contiene 
+             * la lógica principal, mientras que el 'catch' captura errores de red o 
+             * caídas del servidor, asegurando que la aplicación no se detenga por 
+             * fallos externos y permitiendo un flujo de control seguro.
+             */
+            async function monitorearRadarGlobal() {
+                try {
+                    /**
+                     * await fetch('/api/v1/pedidos'): Realiza la llamada a nuestra API. 
+                     * Al ser asíncrono, el sistema espera la respuesta sin bloquear el 
+                     * resto de las funciones del navegador, obteniendo el listado 
+                     * completo para su posterior análisis.
+                     */
+// (aqui modificar al desplegar a produccion: verificar que este endpoint de monitoreo sea accesible desde el exterior)
+                    
+                    const res = await fetch('/api/v1/pedidos');
+                    if (res.ok) {
+                        const pedidos = await res.json();
+                        
+                        /**
+                         * LÓGICA DE DETECCIÓN: Generamos un "hash" dinámico combinando 
+                         * IDs y estados. Si un solo estado cambia en la base de datos, 
+                         * esta cadena resultante será distinta a la anterior, disparando 
+                         * la actualización visual.
+                         */
+                        const estadoActual = pedidos.map(p => p.id + (p.estadoActual || '')).join('|');
+
+                        if (estadoGlobalPrevio === null) {
+                            estadoGlobalPrevio = estadoActual; return;
+                        }
+
+                        /**
+                         * COMPARACIÓN DE ESTADOS:
+                         * Si el estadoActual es diferente al estadoGlobalPrevio, 
+                         * confirmamos que hubo un cambio en el taller y procedemos 
+                         * a actualizar cada contador en la interfaz (DOM).
+                         */
+                        if (estadoActual !== estadoGlobalPrevio) {
+                            estadoGlobalPrevio = estadoActual;
+
+                            /**
+                             * FILTRADO Y CÁLCULO:
+                             * Usamos .filter() para segregar los pedidos por cada etapa 
+                             * de la máquina de estados y .length para obtener el total 
+                             * instantáneo de cada categoría.
+                             */
+                            // 1. Filtrado Exacto con Nomenclatura de Base de Datos
+                            const nuevas = pedidos.filter(p => p.estadoActual === 'NUEVA').length;
+                            const pendiente = pedidos.filter(p => p.estadoActual === 'PENDIENTE_TECNICOS').length;
+                            const revision = pedidos.filter(p => p.estadoActual === 'EN_EVALUACION').length;
+                            const cotizacion = pedidos.filter(p => p.estadoActual === 'COTIZACION').length;
+                            const esperando = pedidos.filter(p => p.estadoActual === 'PRESUPUESTADO').length;
+                            const pagos = pedidos.filter(p => p.estadoActual === 'PAGO_ENVIADO').length;
+                            const produccion = pedidos.filter(p => p.estadoActual === 'EN_PRODUCCION').length;
+                            const listos = pedidos.filter(p => p.estadoActual === 'LISTO_PARA_ENTREGA').length;
+                            
+                            /**
+                             * ACUMULADOR FINANCIERO:
+                             * .reduce() suma el precioFinal únicamente de los pedidos 
+                             * con estado 'ENTREGADO', garantizando un reporte de ventas 
+                             * neto y preciso.
+                             */
+                            const ventas = pedidos.filter(p => p.estadoActual === 'ENTREGADO' && !p.esGarantia).reduce((sum, p) => sum + (p.precioFinal || 0), 0);
+
+                            // 2. Inyección Segura (Anti-Caídas en Cascada)
+                            // Este validador evita el TypeError si una tarjeta no existe en la vista actual.
+                            const setCounterSafe = (id, value) => {
+                                const el = document.getElementById(id);
+                                if (el) el.innerText = value;
+                            };
+
+                            setCounterSafe('contador-nuevas', nuevas);
+                            setCounterSafe('contador-pendiente', pendiente);
+                            setCounterSafe('contador-revision', revision);
+                            setCounterSafe('contador-cotizacion', cotizacion);
+                            setCounterSafe('contador-esperando', esperando);
+                            setCounterSafe('contador-pagos', pagos);
+                            setCounterSafe('contador-produccion', produccion);
+                            setCounterSafe('contador-despacho', listos);
+                            document.getElementById('contador-ventas').innerText = "$" + ventas.toLocaleString('es-CL');
+
+                            // Lógica visual para la Alarma de Solicitudes Nuevas (Sistema Pulsante Rojo)
+                            const cardNuevas = document.getElementById('card-nuevas');
+                            const dotNuevas = document.getElementById('dot-nuevas');
+                            const labelNuevas = document.getElementById('label-nuevas');
+                            // Si hay nuevas solicitudes, activamos la animación y el punto de alerta; si no, los desactivamos para evitar distracciones visuales.  
+                            if (nuevas > 0) {
+                                cardNuevas.classList.add('pulse-alert');
+                                dotNuevas.classList.remove('d-none');
+                                labelNuevas.classList.add('text-alert-label');
+                                document.getElementById('contador-nuevas').classList.add('text-alert');
+                                // si no hay nuevas solicitudes, eliminamos la animación y el punto de alerta para mantener una interfaz limpia y sin distracciones visuales innecesarias.
+                            } else {
+                                cardNuevas.classList.remove('pulse-alert');
+                                dotNuevas.classList.add('d-none');
+                                labelNuevas.classList.remove('text-alert-label');
+                                document.getElementById('contador-nuevas').classList.remove('text-alert');
+                            }
+
+                            // Lógica visual para la Alarma de Pagos (Sistema Pulsante Verde)
+                            // Si hay pagos por validar, activamos la animación pulsante verde; si no, la desactivamos para mantener una interfaz limpia.   
+                            
+                            const cardPagos = document.getElementById('card-pagos');
+                            if (pagos > 0) {
+                                cardPagos.classList.add('pulse-alert-green');
+                            } else {
+                                cardPagos.classList.remove('pulse-alert-green');
+                            }
+                        }
+                    }
+                } catch (e) { 
+                    // Captura errores de red sin detener el hilo principal de ejecución
+                    console.error("Error en radar global"); 
+                }
+            }
+
+            /**
+             * TEMPORIZADOR: setInterval
+             * Establece el ciclo de vida del radar. Ejecuta la función de monitoreo 
+             * cada 15 segundos (15000ms), manteniendo un balance entre la 
+             * actualización en tiempo real y el ahorro de recursos del servidor.
+             */
+            setInterval(monitorearRadarGlobal, 15000);
+        </script>
+    </div>
+</body>
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Legión 3D - Revisión Técnica</title>
+    <!-- Dependencias de Estilo: Bootstrap para el sistema de rejillas y FontAwesome para la iconografía técnica -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!--MÓDULO: REVISIÓN TÉCNICA (TRIAGE DE INGENIERÍA) ------
+    Ubicación: src/main/resources/templates/solicitudes/revision-datos-tecnicos.html
+  Este módulo es el primer filtro de calidad del sistema. Como equipo, diseñamos 
+  esta interfaz para que el equipo técnico (Daniel, Jeremy o Luis) valide la 
+  factibilidad de los diseños 3D antes de comprometer un presupuesto.
+  
+  Funcionalidades Clave:
+  1. Recepción de requerimientos técnicos del cliente.
+  2. Visualización de parámetros de impresión (Ancho, Alto, Profundidad).
+  3. Toma de decisión (Aprobar para Cotización o Rechazar).
+  
+  Arquitectura: Utiliza Thymeleaf para el renderizado del lado del servidor y 
+  Bootstrap para una interfaz responsiva y profesional.
+-->
+<style>
+    /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+
+        /* Optimización de contraste: garantiza que los datos técnicos 
+           ingresados por el cliente sean legibles en cualquier monitor */
+        .text-white-bright {
+            color: #ffffff !important;
+            font-weight: 500;
+        }
+
+        /* Etiquetas de jerarquía: utilizan el color oro (branding) 
+           y tipografía en mayúsculas para separar visualmente los 
+           títulos de los datos en el formulario de evaluación */
+        .label-tech-bright {
+            color: var(--l3d-gold);
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        /* Contenedores de dimensiones: diseñados para encapsular 
+           las medidas X, Y y Z, facilitando al técnico la lectura 
+           rápida del volumen total de la pieza a imprimir */
+        .measure-box-tech {
+            background: #000;
+            border: 1px solid var(--l3d-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        /* Caja de observaciones: aplica un resaltado sutil mediante 
+           transparencias (rgba) para las notas adicionales del 
+           cliente que requieren atención especial del equipo */
+        .info-adicional-box {
+            background: rgba(242, 192, 95, 0.05);
+            border: 1px solid rgba(242, 192, 95, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+        }
+    </style>
+</head>
+
+<body class="bg-black text-white">
+
+   <!--- ESTRUCTURA OPERATIVA: BANDEJA DE ENTRADA Y EVALUACIÓN TÉCNICA----
+  Este bloque gestiona la transición de estados del "Triage de Ingeniería". 
+  Su función es permitir al equipo técnico visualizar los requerimientos 
+  que el client envió desde el portal público para decidir su factibilidad.
+-->
+<div class="container-fluid">
+    <div class="row">
+        <!-- Inyección de componentes globales para navegación -->
+        <div th:replace="~{layout/sidebar :: sidebar}"></div>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+            <!-- SECCIÓN 1: LISTADO GLOBAL (Bandeja de Entrada) -->
+            <div id="seccion-listado" class="animate-fade">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="fw-bold m-0 text-white"><i class="fas fa-microchip text-gold me-2"></i> Revisión
+                        Técnica</h2>
+                    <button class="btn btn-dark btn-sm border-secondary opacity-50"
+                        onclick="location.reload()">REFRESCAR BANDEJA</button>
+                </div>
+
+                <div class="section-container shadow-lg">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold text-white small text-uppercase">Bandeja de Evaluación (Nuevos Ingresos)</span>
+                        <!-- Buscador en tiempo real: optimiza la localización de expedientes específicos -->
+                        <div class="input-group" style="max-width: 300px;">
+                            <span class="input-group-text bg-black border-secondary text-gold"><i
+                                    class="fas fa-search"></i></span>
+                            <input type="text" id="busquedaTecnica" class="form-control l3d-input"
+                                placeholder="Buscar LEG-XXXX..."
+                                onkeyup="filtrarTabla('busquedaTecnica', 'tablaTecnica')">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover table-l3d m-0" id="tablaTecnica">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">TRACKING</th>
+                                    <th>CLIENTE</th>
+                                    <th>SERVICIO</th>
+                                    <th>ESTADO</th>
+                                    <th class="text-end pe-4">ACCIÓN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- 
+                                    LÓGICA THYMELEAF: 
+                                    Filtra dinámicamente los pedidos que están en estado 'EN_EVALUACION' (aquí se realiza la carga inicial).
+                                -->
+                                <tr th:each="pedido : ${pedidos}" th:if="${pedido?.estadoActual == 'EN_EVALUACION'}" class="align-middle">
+                                    <td class="ps-4 fw-bold text-info font-monospace"
+                                        th:text="${pedido?.codigoSeguimiento}">LEG-XXXX</td>
+                                    <td>
+                                        <div class="fw-bold text-white-bright" th:text="${pedido?.cliente?.nombre}">
+                                            Nombre</div>
+                                        <div class="text-white-50 small" th:text="${pedido?.cliente?.email}">
+                                            email@mail.com</div>
+                                    </td>
+                                    <td class="small text-white" th:text="${pedido?.servicioSolicitado}">Servicio
+                                    </td>
+                                    <td><span class="badge text-dark fw-bold px-3 py-2" style="background-color: var(--l3d-gold);"
+                                            th:text="${pedido?.estadoActual}">ESTADO</span></td>
+                                    <td class="text-end pe-4">
+                                        <!-- Disparador del Panel de Detalle mediante JavaScript -->
+                                        <button
+                                            th:onclick="abrirDetalle([[${pedido?.id}]], [[${pedido?.codigoSeguimiento}]], this)"
+                                            class="btn btn-sm btn-l3d-gold px-3">
+                                            <i class="fas fa-eye me-1"></i> VER DATOS
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- Manejo de excepciones visuales cuando no hay registros -->
+                                <tr th:if="${#lists.isEmpty(pedidos)}">
+                                    <td colspan="5" class="text-center text-muted py-4">No hay nuevos formularios técnicos para evaluar.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: PANEL DE DETALLE TÉCNICO (Oculto inicialmente) -->
+            <div id="seccion-detalle" class="d-none animate-fade">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <button onclick="volverAlListado()"
+                        class="btn btn-link text-white text-decoration-none p-0 fw-bold"><i
+                            class="fas fa-arrow-left me-2 text-gold"></i> Volver al listado</button>
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="fw-bold m-0 text-white-bright">Formulario de Especificaciones Técnicas</h2>
+                    <span id="detalle-tracking" class="font-monospace text-gold">ID: ---</span>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        
+                        <!-- BLOQUE: CONTACTO (Datos vinculados al expediente) -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                    class="fas fa-user-circle me-2"></i> DATOS DE CONTACTO (FORMULARIO 2)</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <span class="label-tech-bright">TELÉFONO DE CONTACTO *</span>
+                                    <p class="h5 fw-bold text-white-bright mt-1" id="det-telefono">---</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="label-tech-bright">RUT DEL CLIENTE / FACTURACIÓN *</span>
+                                    <p class="h5 fw-bold text-white-bright mt-1" id="det-rut">---</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE: REQUERIMIENTOS DE LA PIEZA -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                    class="fas fa-box-open me-2"></i> SOBRE LA PIEZA</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-4"><span class="label-tech-bright">¿TIENE PIEZA FÍSICA? *</span>
+                                    <p class="h6 text-white-bright mt-1" id="det-piezaFisica">---</p>
+                                </div>
+                                <div class="col-md-8"><span class="label-tech-bright">¿QUÉ DESEAS HACER CON TU PIEZA FÍSICA? *</span>
+                                    <p class="h6 text-white-bright mt-1" id="det-necesidad">---</p>
+                                </div>
+                            </div>
+                            <div class="row mb-4">
+                                <div class="col-md-6"><span class="label-tech-bright">TOLERANCIA / ENCAJE (¿DEBE CALZAR?) *</span>
+                                    <p class="h6 text-white-bright" id="det-tolerancia">---</p>
+                                </div>
+                                <div class="col-md-6"><span class="label-tech-bright">¿LAS PIEZAS A IMPRIMIR SON COPIAS EXACTAS? *</span>
+                                    <p class="h6 text-white-bright" id="det-copia">---</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE: DIMENSIONES (Organización visual de medidas) -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                    class="fas fa-ruler-combined me-2"></i> MEDIDAS Y CANTIDAD</h6>
+                            <div class="row g-2 mb-4">
+                                <div class="col-md-3">
+                                    <div class="measure-box-tech"><span class="label-tech-bright">ANCHO (mm)</span>
+                                        <p class="h5 mb-0 text-white-bright" id="det-medidaX">---</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="measure-box-tech"><span class="label-tech-bright">ALTO (mm)</span>
+                                        <p class="h5 mb-0 text-white-bright" id="det-medidaY">---</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="measure-box-tech"><span class="label-tech-bright">PROFUNDIDAD (mm)</span>
+                                        <p class="h5 mb-0 text-white-bright" id="det-medidaZ">---</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="measure-box-tech border-warning"><span class="label-tech-bright text-warning">UNIDADES *</span>
+                                        <p class="h5 mb-0 fw-bold text-white-bright" id="det-unidades">---</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Acceso al modelo 3D: el botón se habilita dinámicamente si el link existe -->
+                            <div class="bg-black p-3 rounded border border-secondary d-flex justify-content-between align-items-center">
+                                <span class="label-tech-bright mb-0">ARCHIVO 3D (.STL, .OBJ, .ZIP) O LINK</span>
+                                <!-- Contenedor dinámico para la botonera de descarga -->
+                                <div id="contenedor-boton-descarga" class="mt-3"></div>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE: LOGÍSTICA Y PREFERENCIAS -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                    class="fas fa-cogs me-2"></i> ESPECIFICACIONES TÉCNICAS Y PRESUPUESTO</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-4"><span class="label-tech-bright">ENTORNO DE USO *</span>
+                                    <p class="text-white-bright" id="det-entorno">---</p>
+                                </div>
+                                <div class="col-md-4"><span class="label-tech-bright">MATERIAL SUGERIDO / SOLICITADO *</span>
+                                    <p class="text-white-bright" id="det-material">---</p>
+                                </div>
+                                <div class="col-md-4"><span class="label-tech-bright">COLOR SOLICITADO *</span>
+                                    <p class="text-white-bright" id="det-color">---</p>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded" style="background: rgba(242,192,95,0.05); border: 1px solid #222;">
+                                        <span class="label-tech-bright text-warning">PRESUPUESTO ESTIMADO *</span>
+                                        <p class="fw-bold mb-0 h6 text-white-bright" id="det-presupuesto">---</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded" style="background: rgba(242,192,95,0.05); border: 1px solid #222;">
+                                        <span class="label-tech-bright text-warning">DÍAS DE ENTREGA SOLICITADOS *</span>
+                                        <p class="fw-bold mb-0 h6 text-white-bright" id="det-dias">---</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE: DATOS DE DESPACHO -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                    class="fas fa-truck me-2"></i> ENTREGA Y FACTURACIÓN</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6"><span class="label-tech-bright">MÉTODO DE ENTREGA *</span>
+                                    <p class="text-white-bright" id="det-metodoEntrega">---</p>
+                                </div>
+                                <div class="col-md-6"><span class="label-tech-bright">TIPO DE ENVÍO STARKEN</span>
+                                    <p class="text-white-bright" id="det-tipoEnvio">---</p>
+                                </div>
+                            </div>
+                            <div class="p-3 rounded bg-black border border-secondary">
+                                <span class="label-tech-bright">DIRECCIÓN (REGIÓN, COMUNA, CALLE)</span>
+                                <p class="mb-0 text-white-bright" id="det-direccion">---</p>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE: OBSERVACIONES CRÍTICAS -->
+                        <div class="section-container shadow-lg mb-4">
+                            <h6 class="text-gold fw-bold mb-3"><i class="fas fa-info-circle me-2"></i> INFORMACIÓN ADICIONAL (OPCIONAL)</h6>
+                            <div class="info-adicional-box text-white-bright" id="det-informacionAdicional">Sin
+                                observaciones adicionales</div>
+                        </div>
+                    </div>
+
+                    <!-- PANEL LATERAL DE RESOLUCIÓN (Sticky para mejor UX) -->
+                    <div class="col-lg-4">
+                        <div class="section-container shadow-lg mb-4" style="border-top: 3px solid var(--l3d-gold); position: sticky; top: 20px;">
+                            <h6 class="fw-bold text-white-bright mb-3"><i class="fas fa-gavel text-gold me-2"></i> Resolución de Ingeniería</h6>
+                            <p class="text-white-50 small mb-4">Si la pieza es factible y los datos están completos, aprueba el proyecto para que Finanzas emita el presupuesto.</p>
+                            
+                            <!-- Acción 1: Aprobar (aquí el estado cambia a A_COTIZACION) -->
+                            <button onclick="confirmarEstadoTecnico('A_COTIZACION', this)" class="btn btn-l3d-gold w-100 py-3 fw-bold mb-3 shadow">
+                                <i class="fas fa-check-circle me-2"></i> Aprobar Proyecto <br><small class="fw-normal">(Pasar a Cotización)</small>
+                            </button>
+
+                            <hr class="border-secondary my-3">
+
+                            <!-- Acción 2: Rechazar (aquí el estado cambia a RECHAZADA) -->
+                            <p class="text-white-50 small mb-2 text-center">¿El diseño es imposible de imprimir?</p>
+                            <button onclick="confirmarEstadoTecnico('RECHAZADA', this)" class="btn btn-outline-danger w-100 py-2 fw-bold">
+                                <i class="fas fa-times-circle me-2"></i> Rechazar Proyecto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+        /**
+         * VARIABLE GLOBAL: pedidoTecnicoActual
+         * Funciona como un puntero de memoria volátil para identificar qué expediente 
+         * se está evaluando sin recargar la página. Esto permite una navegación 
+         * fluida tipo Single Page Application (SPA).
+         */
+        let pedidoTecnicoActual = null;
+
+        /**
+         * FUNCIÓN: abrirDetalle
+         * Es el motor de la transición visual entre el listado y la ficha técnica.
+         * Utiliza 'async/await' para manejar la asincronía de la red de forma lineal y legible.
+         */
+        async function abrirDetalle(id, tracking, btn) {
+            // Guardia de seguridad: evita procesar IDs nulos o indefinidos.
+            if (!id) return;
+            pedidoTecnicoActual = id;
+            const originalText = btn.innerHTML;
+            
+            // FEEDBACK VISUAL INMEDIATO: Bloquea el botón y activa un spinner.
+            // Esto previene que el usuario haga múltiples clics mientras espera los datos.
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                // FETCH: Consulta al endpoint REST para obtener el objeto Pedido completo.
+                const response = await fetch(`/api/v1/pedidos/${id}`);
+                
+                // Validación de integridad: si el servidor falla, lanzamos una excepción al bloque catch.
+                if (!response.ok) throw new Error("No se pudo conectar con el servidor.");
+
+                // SERIALIZACIÓN: Transformamos la respuesta JSON en un objeto literal de JavaScript.
+                const pedido = await response.json();
+                const dt = pedido.detallesTecnicos || {};
+
+                // MANIPULACIÓN DINÁMICA DEL DOM: Inyectamos los datos en la interfaz.
+                document.getElementById('detalle-tracking').innerText = "ID: " + tracking;
+                
+                /**
+                 * LÓGICA DE RESPALDO (Fallback):
+                 * Aplicamos operadores lógicos para garantizar que el usuario nunca vea campos vacíos.
+                 * Si un dato no existe en la BD, mostramos 'No especificado'.
+                 */
+                document.getElementById('det-telefono').innerText = (pedido.cliente && pedido.cliente.telefono) ? pedido.cliente.telefono : (dt.telefonoContacto || 'No especificado');
+                document.getElementById('det-rut').innerText = dt.rut || (pedido.cliente ? pedido.cliente.rut : 'No especificado');
+
+                document.getElementById('det-piezaFisica').innerText = dt.tienePiezaFisica ? 'Sí' : 'No';
+                document.getElementById('det-necesidad').innerText = dt.necesitaModificacion || 'No especificado';
+                document.getElementById('det-tolerancia').innerText = dt.toleranciaCheck ? 'Sí, debe calzar' : 'No es necesario';
+                document.getElementById('det-copia').innerText = dt.esCopiaExacta ? 'Sí, son copias idénticas' : 'No, son piezas diferentes';
+
+                document.getElementById('det-medidaX').innerText = dt.medidaAncho ? dt.medidaAncho : '---';
+                document.getElementById('det-medidaY').innerText = dt.medidaAlto ? dt.medidaAlto : '---';
+                document.getElementById('det-medidaZ').innerText = dt.medidaProfundidad ? dt.medidaProfundidad : '---';
+                document.getElementById('det-unidades').innerText = dt.cantidadUnidades || '1';
+
+                document.getElementById('det-entorno').innerText = dt.entornoUso || '---';
+                document.getElementById('det-material').innerText = dt.materialSolicitado || '---';
+                document.getElementById('det-color').innerText = dt.colorSolicitado || '---';
+                
+                document.getElementById('det-presupuesto').innerText = dt.presupuestoEstimado || '---';
+                document.getElementById('det-dias').innerText = dt.diasEntrega || '---';
+
+                document.getElementById('det-metodoEntrega').innerText = dt.metodoEntrega || '---';
+                document.getElementById('det-tipoEnvio').innerText = dt.tipoEnvioStarken || 'N/A';
+
+                // CONCATENACIÓN DINÁMICA: Filtramos y unimos los campos de dirección.
+                let dir = [];
+                if (dt.calleYNumero) dir.push(dt.calleYNumero);
+                if (dt.deptoCasaOficina) dir.push(dt.deptoCasaOficina);
+                if (dt.comuna) dir.push(dt.comuna);
+                if (dt.region) dir.push(dt.region);
+                document.getElementById('det-direccion').innerText = dir.length > 0 ? dir.join(', ') : 'No especificada / No requiere';
+
+                document.getElementById('det-informacionAdicional').innerText = dt.informacionAdicional || 'Sin observaciones adicionales';
+
+                // GESTIÓN DE ARCHIVOS: Verificamos qué recursos están disponibles para Luis.
+                const contenedorBoton = document.getElementById('contenedor-boton-descarga');
+                if (contenedorBoton) {
+                    const hasLinkInicial = pedido.linkArchivoInicial && pedido.linkArchivoInicial.trim() !== "" && pedido.linkArchivoInicial !== "." && pedido.linkArchivoInicial !== "...";
+                    const hasDriveId = dt.driveFileId && dt.driveFileId.trim() !== "" && dt.driveFileId !== ".";
+                    const hasLinkFinal = dt.linkArchivoFinal && dt.linkArchivoFinal.trim() !== "" && dt.linkArchivoFinal !== "." && dt.linkArchivoFinal !== "...";
+
+                    contenedorBoton.innerHTML = `
+                        <button onclick="verificarExistenciaArchivo(${hasLinkInicial || hasDriveId || hasLinkFinal})" class="btn btn-outline-info btn-sm fw-bold w-100">
+                            <i class="fas fa-info-circle me-1"></i> INFO: ARCHIVOS DISPONIBLES
+                        </button>
+                    `;
+                }
+
+                // TRANSICIÓN DE VISTA: Ocultamos el listado y mostramos el panel de detalle.
+                document.getElementById('seccion-listado').classList.add('d-none');
+                document.getElementById('seccion-detalle').classList.remove('d-none');
+                window.scrollTo(0, 0);
+
+            } catch (e) {
+                // MANEJO DE ERRORES CON UI MODERNA:
+                console.error("Fallo técnico al abrir detalle:", e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Fallo de Sincronización',
+                    text: 'No logramos obtener los datos del servidor. Verifica tu conexión.',
+                    confirmButtonColor: '#F2C05F'
+                });
+            } finally {
+                // LIMPIEZA DE ESTADO: Restauramos el botón original pase lo que pase.
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Función simple para retornar a la bandeja de entrada.
+        function volverAlListado() {
+            document.getElementById('seccion-detalle').classList.add('d-none');
+            document.getElementById('seccion-listado').classList.remove('d-none');
+        }
+
+        /**
+         * FUNCIÓN: filtrarTabla
+         * Motor de búsqueda en tiempo real que opera sobre el DOM. 
+         * Es extremadamente rápido ya que no requiere peticiones al servidor.
+         */
+        function filtrarTabla(inputId, tablaId) {
+            let filter = document.getElementById(inputId).value.toUpperCase();
+            let trs = document.getElementById(tablaId).getElementsByTagName("tr");
+            for (let i = 1; i < trs.length; i++) {
+                let txt = trs[i].textContent || trs[i].innerText;
+                trs[i].style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+        }
+
+        /**
+         * FUNCIÓN: confirmarEstadoTecnico
+         * Ejecuta la resolución final de ingeniería, moviendo el pedido a Cotización o Rechazándolo.
+         */
+        async function confirmarEstadoTecnico(nuevoEstadoStr, btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando...';
+            btn.disabled = true;
+
+            try {
+                let url = `/api/v1/pedidos/${pedidoTecnicoActual}/estado`;
+                let config = {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nuevoEstado: nuevoEstadoStr, mensajeTriage: "Evaluación Técnica Completa" })
+                };
+
+                // Lógica de Aprobación Nueva (Ruta especializada para crear Detalles Técnicos).
+                if (nuevoEstadoStr === 'A_COTIZACION') {
+                    url = `/api/v1/pedidos/${pedidoTecnicoActual}/aprobar`;
+                    config.body = null; 
+                }
+
+                const res = await fetch(url, config);
+                
+                if (res.ok) { 
+                    // ALERTA DE ÉXITO UNIFICADA:
+                    if (nuevoEstadoStr === 'A_COTIZACION') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: '¡Proyecto Aprobado!',
+                            text: 'El expediente ha sido enviado al panel comercial de Cotizaciones.',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: 'Proyecto Rechazado',
+                            text: 'Se ha registrado la inviabilidad y se notificará al cliente.',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                    }
+                    location.reload(); 
+                } else {
+                    throw new Error("El servidor rechazó la actualización.");
+                }
+            } catch (e) { 
+                console.error("Error en transición de estado:", e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Operación Fallida',
+                    text: 'Hubo un problema al intentar actualizar el estado del pedido.',
+                    confirmButtonColor: '#F2C05F'
+                });
+            } finally { 
+                btn.innerHTML = originalText; 
+                btn.disabled = false; 
+            }
+        }
+
+        /**
+         * FUNCIÓN: verificarExistenciaArchivo
+         * Utilidad para Luis que verifica de forma visual la disponibilidad de planos o modelos 3D.
+         */
+        function verificarExistenciaArchivo(existe) {
+            if (existe) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Material Técnico Detectado',
+                    text: 'El cliente adjuntó archivos o enlaces. Podrás gestionarlos en la siguiente etapa (Cotización).',
+                    confirmButtonColor: '#F2C05F'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin Adjuntos',
+                    text: 'El cliente no ha proporcionado archivos físicos ni enlaces externos para este requerimiento.',
+                    confirmButtonColor: '#F2C05F'
+                });
+            }
+        }
+    </script>
+</body>
+</html>

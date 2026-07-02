@@ -1,0 +1,64 @@
+============================================================
+   SISTEMA DE AUTOMATIZACIÓN LOCAL - LEGIÓN 3D TRACKER
+============================================================
+Este ecosistema gestiona el orden de archivos físicos, la
+limpieza de datos obsoletos y el respaldo de la Bóveda SQL.
+
+1. ESTRUCTURA DE LOS ROBOTS (.bat)
+------------------------------------------------------------
+Ubicación: C:\LEGION3D_BACKUPS_PC\00_Scripts\
+
+[00] ejecutar_mantenimiento_legion3d.bat
+     EL DIRECTOR: Orquestador maestro que llama a los demás
+     scripts en orden (Orden -> Limpieza -> Backup SQL).
+
+[01] ordenar_descargas_legion3d.bat
+     EL ORDENADOR: Escanea la carpeta 'Descargas' de Windows.
+     Si encuentra archivos con el prefijo 'LEG-', los corta y
+     los pega en su carpeta de destino según el tipo:
+     -pago-  -> Pagos_PC
+     -envio- -> Envios_Starken_PC
+     -tec-   -> F_Tecnicos_Temporales_Finales_PC
+     -wps-   -> WPS_Temporales_Inicial_PC
+
+[02] limpiar_temporales_legion3d.bat
+     EL EXTERMINADOR: Ejecuta la política de retención de 90 días.
+     Solo elimina archivos que empiecen con 'LEG-' y tengan más
+     de 3 meses de antigüedad para proteger el disco duro.
+
+[03] respaldo_boveda_legion3d.bat
+     LA BÓVEDA: Realiza un 'Dump' completo de la base de datos
+     MySQL y lo guarda en la carpeta 'Boveda de Historial_PC'.
+
+2. BOTONES DE CONTROL (OPERATIVIDAD)
+------------------------------------------------------------
+[04] desactivar_mantenimiento.bat (KILL SWITCH)
+     Boton de pánico. Apaga los motores y elimina la tarea
+     programada de Windows. Requiere escribir 'ACEPTO'.
+
+[05] activar_mantenimiento.bat (REACTIVADOR)
+     Botón de encendido. Configura Windows para que ejecute
+     el Script [00] automáticamente todos los días a las 13:00h.
+
+3. PRUEBA DE FUNCIONAMIENTO (TEST END-TO-END)
+------------------------------------------------------------
+Paso A: Ejecuta manualmente el script [01].
+Paso B: Descarga desde el sistema un archivo de ejemplo:
+        LEG-T001-pago-comprobante.png
+Paso C: El archivo debe desaparecer de 'Descargas' y aparecer en:
+        C:\LEGION3D_BACKUPS_PC\Pagos_PC\2026\05\09\ (fecha de hoy)
+
+4. POLÍTICAS DE DATOS (REGLAS DE NEGOCIO)
+------------------------------------------------------------
+* INTEGRIDAD: La Bóveda de Historial (SQL) nunca se borra.
+* PRIVACIDAD: Los comprobantes de pago y archivos técnicos
+  físicos se auto-destruyen en 90 días del PC local.
+* SEGURIDAD: Los robots solo tocan archivos que empiecen con
+  el código 'LEG-'. Los archivos personales de Luis están a salvo.
+
+5. ROADMAP (PRÓXIMAS MEJORAS)
+------------------------------------------------------------
+- Detección de carpeta 'Descargas' personalizada (fuera del perfil).
+- Consolidación de backups SQL (Limpieza de diarios al fin de mes).
+- Sincronización automática con Google Drive Desktop.
+============================================================

@@ -1,0 +1,192 @@
+/* LEGIÓN 3D TRACKER - HOJA DE ESTILOS MAESTRA */
+
+/**
+ * Este archivo es el corazón visual de nuestro sistema y actúa como nuestra única "fuente de verdad" estética.
+ * 
+ * A nivel de arquitectura frontend, decidimos centralizar todo el diseño en esta hoja maestra 
+ * para vincularla directamente con todas nuestras vistas HTML (ubicadas en la carpeta de templates, 
+ * como el panel administrativo de Luis, el formulario técnico o la pantalla de seguimiento del cliente). 
+ * Al unificar las reglas aquí, garantizamos que cada rincón de la aplicación respire exactamente 
+ * la misma identidad corporativa de Legión 3D: una estética industrial, oscura y altamente profesional.
+ * 
+ * Implementamos variables CSS globales (:root) como una estrategia directa de escalabilidad y mantenimiento. 
+ * Diseñamos esto para que, si en el futuro se requiere ajustar el tono del branding, el equipo 
+ * solo tenga que modificar el valor en este archivo central. Ese cambio se propagará en cascada 
+ * por todas las tarjetas, modales y botones del sistema de forma automática, evitando la duplicación de código.
+ */
+
+/* Variables de Color para la Identidad Visual */
+:root {
+    --l3d-dark: #0a0a0a;/* Fondo principal oscuro */
+    --l3d-surface: #141414;/* Superficies de tarjetas y secciones */
+    --l3d-gold: #F2C05F;/* Acento dorado para títulos y botones */
+    --l3d-gold-dark: #dfb157; /* Versión más oscura del dorado para hover */
+    --l3d-border: #252525;/* Bordes de tarjetas y tablas */
+    --l3d-text: #ffffff;/* Color principal del texto */
+    --l3d-text-dim: #c4c2c2;/* Texto secundario y deshabilitado */
+    --l3d-whatsapp: #25D366;    /* Color oficial de WhatsApp para el botón de contacto */
+    
+}
+
+
+/* Base del cuerpo */
+body {
+    background-color: var(--l3d-dark);
+    color: var(--l3d-text);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+}
+
+/* Scrollbar estilo industrial */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--l3d-gold); }
+
+/* Componentes de Tarjetas y Secciones */
+.section-container {
+    background-color: var(--l3d-surface);
+    border: 1px solid var(--l3d-border);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+/* Títulos de Sección */
+.section-title {
+    color: var(--l3d-gold);
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+/* Botones de Acción Globales */
+.btn-l3d-gold {
+    background-color: var(--l3d-gold);
+    color: #000;
+    font-weight: 800;
+    border: none;
+    padding: 10px 15px;
+    font-size: 0.75rem;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+/* Efecto Hover para Botones */
+.btn-l3d-gold:hover {
+    background-color: var(--l3d-gold-dark);
+    transform: translateY(-2px);
+}
+
+/* Botón de WhatsApp */
+.btn-whatsapp {
+    background-color: var(--l3d-whatsapp);
+    color: white;
+    font-weight: 700;
+    border: none;
+    padding: 10px 15px;
+    font-size: 0.75rem;
+    border-radius: 5px;
+}
+
+/* Utilidades de Formulario */
+.form-control-l3d {
+    background-color: #0a0a0a !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+    font-size: 0.85rem;
+}
+/* Efecto Focus para Inputs */
+.form-control-l3d:focus {
+    border-color: var(--l3d-gold) !important;
+    box-shadow: 0 0 0 0.25rem rgba(242, 192, 95, 0.1) !important;
+}
+/* Etiquetas de Formulario */
+.form-label {
+    color: var(--l3d-gold);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+/* --- ESTILOS COMPARTIDOS DE TABLAS Y BUSCADORES --- */
+
+.table-l3d { 
+    background-color: var(--l3d-surface); 
+    border: 1px solid var(--l3d-border); 
+    border-radius: 10px; 
+    overflow: hidden; 
+}
+/* Encabezados de Tabla */
+.table-l3d thead { 
+    background-color: #000; 
+    color: var(--l3d-gold); 
+    font-size: 0.7rem; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+}
+/* Celdas de Tabla */
+.table-l3d td { 
+    vertical-align: middle; 
+    border-bottom: 1px solid #222; 
+    padding: 12px; 
+    color: #ffffff !important; 
+}
+/* Resaltar ID Comercial */
+.text-commercial-id { 
+    color: #88eeff; 
+    font-family: 'Courier New', monospace; 
+    font-weight: bold; 
+    font-size: 0.95rem; 
+}
+/* Estilos para el Buscador */
+.search-input { 
+    background-color: #000 !important; 
+    border: 1px solid var(--l3d-border) !important; 
+    color: white !important; 
+    font-size: 0.85rem; 
+}
+/* Efecto Focus para el Buscador */
+.search-input:focus { 
+    border-color: var(--l3d-gold) !important; 
+    box-shadow: none; 
+}
+/* Estilos para Badges */
+.badge-l3d { 
+    border: 1px solid var(--l3d-border); 
+    background: #000; 
+    color: var(--l3d-text-dim); 
+    font-size: 0.7rem; 
+    padding: 5px 10px; 
+}
+
+/* Estilos para texto secundario o deshabilitado */
+.text-muted {
+  color: rgb(255, 255, 255) !important;
+}
+
+/* Aniquilar flechas de incremento en TODOS los inputs numéricos del sistema */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+input[type=number] { 
+    -moz-appearance: textfield; 
+}
+
+/* =========================================================
+   REDUCCIÓN GLOBAL DE ESCALA (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+
+/* --- ESTILOS DE MODALES --- */
+.modal-content { background-color: var(--l3d-surface); border: 1px solid var(--l3d-border); color: white; }
+.modal-header { border-bottom: 1px solid var(--l3d-border); }
+.modal-footer { border-top: 1px solid var(--l3d-border); }
+

@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legión 3D - Gestión de Triaje</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!------MÓDULO: GESTIÓN DE TRIAJE (PROCESAMIENTO INICIAL)-----
+    Ubicación: src/main/resources/templates/solicitudes/triaje.html
+  Este archivo representa la "puerta de entrada" administrativa del sistema. 
+  Aquí se reciben los registros en estado "NUEVA" para su evaluación inicial. 
+  Arquitectónicamente, separa las solicitudes de clientes externos (Portal Web) 
+  de la gestión comercial interna del taller.
+-->
+  <style>
+    /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+        /* Botón de Entrada Manual: utiliza un borde punteado (dashed) para 
+           diferenciarse visualmente de los botones de proceso estándar, indicando 
+           que es una acción de creación de un nuevo registro desde cero. */
+        .btn-manual { 
+            background-color: transparent; 
+            border: 1px dashed #F2C05F; 
+            color: #F2C05F; 
+            font-size: 0.75rem; 
+            font-weight: 700; 
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            transition: 0.3s; 
+        }
+
+        /* Micro-interacción de realce: el uso de 'scale' proporciona un feedback 
+           dinámico al operador, confirmando que el botón está listo para ser activado. */
+        .btn-manual:hover { 
+            background-color: rgba(242, 192, 95, 0.1); 
+            transform: scale(1.05); 
+        }
+
+        /* Arquitectura del buscador: limita el ancho máximo a 350px para mantener 
+           la armonía visual de la interfaz y evitar que los inputs se estiren 
+           demasiado en pantallas de alta resolución. */
+        .search-container { 
+            max-width: 350px; 
+            margin-bottom: 15px; 
+        }
+
+        /* Zona de interacción para archivos: el borde punteado es una convención 
+           de diseño (UX) que señala áreas donde se pueden soltar archivos o 
+           pegar enlaces externos como Drive o Dropbox. */
+        .file-zone-small { 
+            border: 2px dashed #333; 
+            padding: 20px; 
+            text-align: center; 
+            border-radius: 10px; 
+            background: #080808; 
+            cursor: pointer; 
+            transition: 0.3s; 
+        }
+
+        /* Feedback de foco: cambia el color del borde al oro corporativo (l3d-gold) 
+           cuando el usuario interactúa con la zona de archivos. */
+        .file-zone-small:hover { 
+            border-color: var(--l3d-gold); 
+        }
+
+        /* Tipografía de soporte: clase de utilidad para textos legales, 
+           aclaraciones pequeñas o notas al pie que no deben competir visualmente 
+           con los datos principales. */
+        .x-small { 
+            font-size: 0.65rem; 
+        }
+    </style>
+</head>
+<body>
+
+<!----- ESTRUCTURA DE GESTIÓN OPERATIVA: BANDEJA DE TRIAJE----
+Este bloque es el epicentro de la toma de decisiones iniciales. Como equipo, 
+  diseñamos una interfaz de doble propósito: procesar solicitudes nuevas 
+  y auditar la información comercial existente.
+-->
+<div class="container-fluid">
+    <div class="row">
+        <!-- Inyección del Sidebar: Mantiene la consistencia de navegación en el panel admin -->
+        <div th:replace="~{layout/sidebar :: sidebar}"></div>
+        
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <!-- Header Fijo: Proporciona acceso rápido a notificaciones y perfil de Luis -->
+            <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+            <!-- CONTENEDOR 1: SOLICITUDES "NUEVA" (Filtrado por Estado) -->
+            <div class="section-container shadow-lg">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="section-title mb-0">
+                        <i class="fas fa-list-ul me-2"></i> Solicitudes Pendientes de Revisión
+                    </div>
+                    <!-- Acción Administrativa: Permite a Luis ingresar clientes que contactan por fuera del portal -->
+                    <button class="btn btn-manual" onclick="abrirModalManual()">
+                        <i class="fas fa-plus-circle me-1"></i> + SOLICITUD MANUAL
+                    </button>
+                </div>
+
+                <!-- Buscador de Triage: Filtra dinámicamente la tabla mediante el evento onkeyup -->
+                <div class="search-container">
+                    <div class="input-group">
+                        <span class="input-group-text bg-black border-secondary text-warning"><i class="fas fa-search"></i></span>
+                        <input type="text" id="busquedaSolicitudes" class="form-control search-input" 
+                               placeholder="Filtrar solicitudes..." onkeyup="filtrarTabla('busquedaSolicitudes', 'tablaSolicitudes')">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-l3d" id="tablaSolicitudes">
+                        <thead>
+                            <tr>
+                                <th>Código</th><th>Cliente</th><th>Servicio</th><th>Origen</th><th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 
+                                LÓGICA THYMELEAF (Operación Quirúrgica):
+                                th:each: Itera la lista de pedidos enviada por el controlador.
+                                th:if: Filtra estrictamente solo aquellos con estado 'NUEVA' para el proceso de triaje.
+                            -->
+                            <tr th:each="pedido : ${pedidos}" th:if="${pedido?.estadoActual == 'NUEVA'}">
+                                <td th:text="${pedido?.codigoSeguimiento}" class="text-commercial-id">L3D-XXXX</td>
+                                <td th:text="${pedido?.cliente?.nombre}" class="fw-bold">Nombre</td>
+                                <td th:text="${pedido?.servicioSolicitado}">Servicio</td>
+                                <td><span class="badge badge-l3d" th:text="${pedido?.origenContacto}">Web</span></td>
+                                <td class="text-center">
+                                    <!-- th:onclick: Pasa los datos dinámicos al modal de decisión para evitar consultas extra al servidor -->
+                                    <button class="btn btn-l3d-gold btn-sm" 
+                                            th:onclick="abrirTriage([[${pedido?.id}]], [[${pedido?.cliente?.nombre}]], [[${pedido?.mensajeOriginal}]])">
+                                        Revisar
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR 2: AUDITORÍA COMERCIAL (Vista General) -->
+            <div class="section-container shadow-lg mt-4">
+                <div class="section-title"><i class="fas fa-file-invoice-dollar me-2"></i> 1. Información Comercial y Contacto</div>
+                
+                <div class="search-container">
+                    <div class="input-group">
+                        <span class="input-group-text bg-black border-secondary text-info"><i class="fas fa-filter"></i></span>
+                        <input type="text" id="busquedaComercial" class="form-control search-input" 
+                               placeholder="Buscar por RUT, Email o Nombre..." onkeyup="filtrarTabla('busquedaComercial', 'tablaComercial')">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-dark align-middle table-l3d" id="tablaComercial">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">TRACKING</th><th>CLIENTE / EMAIL</th><th>TELÉFONO / RUT</th><th>SERVICIO</th><th>ESTADO</th><th>PRECIO</th><th class="text-center">ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="p : ${pedidos}">
+                                <td class="ps-3 text-commercial-id" th:text="${p?.codigoSeguimiento}">LEG-XXXX</td>
+                                <td><div class="fw-bold" th:text="${p?.cliente?.nombre}">Nombre</div><div class="small text-muted" th:text="${p?.cliente?.email}">email@mail.com</div></td>
+                                <td><div th:text="${p?.cliente?.telefono}">+569...</div><div class="small text-muted" th:text="${p?.cliente?.rut ?: 'Sin RUT'}">RUT</div></td>
+                                <td><div class="badge-l3d mb-1" th:text="${p?.servicioSolicitado}">Servicio</div></td>
+                                <!-- th:classappend: Cambia el color del texto dinámicamente según el estado del pedido (Feedback visual rápido) -->
+                                <td><span class="fw-bold small" th:classappend="${p?.estadoActual == 'NUEVA' ? 'text-warning' : (p?.estadoActual == 'RECHAZADA' ? 'text-danger' : 'text-success')}" th:text="${p?.estadoActual}">ESTADO</span></td>
+                                <td class="text-success fw-bold" th:text="${p?.precioFinal != null ? '$' + p.precioFinal : '$ ---'}">$ ---</td>
+                                <td class="text-center">
+                                    <div class="d-flex gap-2 justify-content-center">
+                                        <button class="btn btn-sm btn-outline-warning" title="Editar" th:onclick="editarComercial([[${p?.id}]])">
+                                            <i class="fas fa-edit me-1"></i> EDITAR
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+<div class="modal fade" id="modalTriage" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg bg-black border border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-warning"><i class="fas fa-gavel me-2"></i> Revisión de Solicitud Inicial</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-white">
+                <div class="row">
+                    <div class="col-md-6 border-end border-secondary">
+                        <p class="text-gold small mb-1">CLIENTE:</p>
+                        <h5 id="modalNombreCliente" class="mb-3">---</h5>
+                        
+<p class="text-gold small mb-1">MENSAJE DEL CLIENTE:</p>
+<div id="modalMensajeOriginal" class="p-3 bg-dark rounded border border-secondary small mb-3" style="min-height: 80px;">---</div>
+
+<div id="visorArchivoTriage" class="mb-3 d-none border border-secondary rounded overflow-hidden bg-dark text-center p-2">
+    </div>
+
+<div class="d-flex gap-2 mb-3">
+    <button id="btn-recurso-archivo" class="btn btn-sm btn-outline-info px-3 d-none">
+        <i class="fas fa-file-download me-2"></i> ARCHIVO FÍSICO
+    </button>
+                            <button id="btn-recurso-link" class="btn btn-sm btn-outline-warning px-3 d-none">
+                                <i class="fas fa-external-link-alt me-2"></i> LINK EXTERNO
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-gold small mb-1">MENSAJE DE LUIS (OPCIONAL):</label>
+                        <textarea id="mensajeLuis" class="form-control form-control-l3d mb-3" rows="3" placeholder="Explica la decisión..."></textarea>
+                        <p class="x-small text-muted">Se incluirá en el correo automático al cliente.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">CERRAR</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-danger px-4" onclick="ejecutarAccion('RECHAZADA', this)">RECHAZAR</button>
+                    <button type="button" class="btn btn-success px-4" onclick="ejecutarAccion('PENDIENTE_TECNICOS', this)">APROBAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 
+    MODAL 2: SOLICITUD MANUAL (Lead Entry)
+    Implementado para capturar oportunidades de negocio que no entran por el portal, 
+    asegurando que todos los clientes de Legión 3D estén centralizados en la base de datos MySQL.
+-->
+<div class="modal fade" id="modalManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg bg-black border border-warning">
+            <div class="modal-header border-secondary bg-dark">
+                <h5 class="modal-title text-gold fw-bold"><i class="fas fa-plus-circle me-2"></i> Nueva Entrada de Cliente (Lead)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formManual">
+                <div class="modal-body text-white">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-gold">NOMBRE DEL CLIENTE *</label>
+                            <input type="text" id="manualNombre" class="form-control l3d-input" required placeholder="Nombre Apellido">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-gold">CORREO ELECTRÓNICO *</label>
+                            <input type="email" id="manualEmail" class="form-control l3d-input" required placeholder="usuario@dominio.com">
+                        </div>
+                    </div>
+                    <!-- Campos opcionales y descriptivos para nutrir el expediente desde el primer contacto -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-gold">TELÉFONO (OPCIONAL)</label>
+                            <input type="tel" id="manualTelefono" class="form-control l3d-input" placeholder="+56912345678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-gold">¿CÓMO SE ENTERÓ DE NOSOTROS?</label>
+                            <select id="manualOrigen" class="form-select l3d-input">
+                                <option value="Manual Luis">Entrada Manual (Admin)</option>
+                                <option value="Google Maps">Google Maps</option>
+                                <option value="Instagram">Instagram</option>
+                                <option value="Referido">Referido</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label d-block small fw-bold text-gold mb-2">¿POR CUÁL SERVICIO DESEA CONSULTAR?</label>
+                        <select id="manualServicio" class="form-select l3d-input">
+                            <option value="Impresión 3D">Impresión 3D</option>
+                            <option value="Diseño 3D">Diseño 3D</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-gold">DESCRIPCIÓN DEL PROYECTO *</label>
+                        <textarea id="manualMensaje" class="form-control l3d-input" rows="3" placeholder="Ej: Necesito diseñar e imprimir una manija..."></textarea>
+                    </div>
+                    <div class="mb-3 text-muted small">
+                        <i class="fas fa-info-circle me-1"></i> Si el cliente tiene un archivo, pégalo como un enlace de Drive dentro de la descripción.
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">CANCELAR</button>
+                    <!-- El botón dispara la función asíncrona 'guardarSolicitudManual' -->
+                    <button type="button" class="btn btn-l3d-gold px-4" onclick="guardarSolicitudManual(this)">CREAR REGISTRO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/main.js}"></script>
+
+<script>
+    /* ========================================================================
+       SISTEMA DE GESTIÓN OPERATIVA: MOTOR LÓGICO DE TRIAJE (Legión 3D)
+       ========================================================================
+       Control de estados, validación de prospectos y gestión de archivos iniciales.
+       En esta pantalla, el archivo principal normalmente viene desde WordPress,
+       por eso el origen oficial de descarga es: wps.
+    */
+
+    let pedidoIdActual = null;
+    const modalTriage = new bootstrap.Modal(document.getElementById('modalTriage'));
+    const modalManual = new bootstrap.Modal(document.getElementById('modalManual'));
+
+    // -------------------------------------------------------------------------
+    // 1. LÓGICA DE TRIAJE: APERTURA Y CARGA DINÁMICA DE RECURSOS
+    // -------------------------------------------------------------------------
+    async function abrirTriage(id, nombre, mensaje) {
+        pedidoIdActual = id;
+
+        document.getElementById('modalNombreCliente').innerText = nombre;
+        document.getElementById('modalMensajeOriginal').innerText = mensaje || "Sin mensaje adicional.";
+        document.getElementById('mensajeLuis').value = "";
+
+        const btnArchivo = document.getElementById('btn-recurso-archivo');
+        const btnLink = document.getElementById('btn-recurso-link');
+        const visor = document.getElementById('visorArchivoTriage');
+
+        // Reset visual preventivo
+        btnArchivo.classList.add('d-none');
+        btnLink.classList.add('d-none');
+
+        if (visor) {
+            visor.innerHTML = "";
+            visor.classList.add('d-none');
+        }
+
+        try {
+            const response = await fetch(`/api/v1/pedidos/${id}`);
+
+            if (response.ok) {
+                const pedido = await response.json();
+                const dt = pedido.detallesTecnicos || {};
+                const cli = pedido.cliente || { nombre: nombre, telefono: '' };
+
+                const tracking = pedido.codigoSeguimiento || "LEG-XXXX";
+
+                // -------------------------------------------------------------
+                // VISOR DE IMAGEN
+                // Solo intenta previsualizar si el link parece ser imagen directa.
+                // Si es Drive común, normalmente no carga como imagen directa.
+                // -------------------------------------------------------------
+                if (visor) {
+                    const link = pedido.linkArchivoInicial;
+
+                    if (link && (link.match(/\.(jpeg|jpg|gif|png|webp)$/i) || link.includes('googleusercontent'))) {
+                        visor.innerHTML = `
+                            <img 
+                                src="${link}" 
+                                class="img-fluid rounded border border-secondary shadow" 
+                                style="max-height: 150px; cursor: pointer;" 
+                                onclick="window.open(this.src, '_blank')"
+                            >
+                        `;
+                        visor.classList.remove('d-none');
+                    } else {
+                        visor.classList.add('d-none');
+                    }
+                }
+
+                // -------------------------------------------------------------
+                // BOTÓN 1: ARCHIVO TÉCNICO
+                // Solo aparece si ya existe driveFileId en detalles técnicos.
+                // Origen oficial: tec
+                // -------------------------------------------------------------
+                if (dt.driveFileId && dt.driveFileId.trim() !== "") {
+                    const linkTecnico = dt.linkArchivoFinal || "";
+
+                    btnArchivo.classList.remove('d-none');
+                    btnArchivo.innerHTML = '<i class="fas fa-file-download me-2"></i> ARCHIVO TÉCNICO';
+
+                    btnArchivo.onclick = () => gestionarIntegridadArchivo(
+                        pedido.id,
+                        tracking,
+                        linkTecnico,
+                        cli.nombre || nombre,
+                        cli.telefono || '',
+                        'tec'
+                    );
+                }
+
+                // -------------------------------------------------------------
+                // BOTÓN 2: ARCHIVO INICIAL WORDPRESS
+                // Este es el caso principal de triaje.
+                // Origen oficial: wps
+                // -------------------------------------------------------------
+                else if (pedido.linkArchivoInicial && pedido.linkArchivoInicial.trim() !== "") {
+                    btnArchivo.classList.remove('d-none');
+                    btnArchivo.innerHTML = '<i class="fas fa-history me-2"></i> ARCHIVO INICIAL';
+
+                    btnArchivo.onclick = () => gestionarIntegridadArchivo(
+                        pedido.id,
+                        tracking,
+                        pedido.linkArchivoInicial,
+                        cli.nombre || nombre,
+                        cli.telefono || '',
+                        'wps'
+                    );
+                } else {
+                    btnArchivo.classList.add('d-none');
+                }
+
+                // -------------------------------------------------------------
+                // BOTÓN 3: LINK EXTERNO
+                // Si existe un link manual en detalles técnicos.
+                // En triaje normalmente puede no existir todavía.
+                // Origen oficial: links
+                // -------------------------------------------------------------
+                if (dt.linkArchivoFinal && dt.linkArchivoFinal.startsWith('http')) {
+                    btnLink.classList.remove('d-none');
+                    btnLink.innerHTML = '<i class="fas fa-external-link-alt me-2"></i> LINK EXTERNO';
+
+                    btnLink.onclick = () => gestionarIntegridadArchivo(
+                        pedido.id,
+                        tracking,
+                        dt.linkArchivoFinal,
+                        cli.nombre || nombre,
+                        cli.telefono || '',
+                        'links'
+                    );
+                } else {
+                    btnLink.classList.add('d-none');
+                }
+            }
+        } catch (e) {
+            console.error("Error al cargar recursos:", e);
+        }
+
+        modalTriage.show();
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. GESTOR DE INTEGRIDAD: VER EN NUBE O FORZAR DESCARGA
+    // -------------------------------------------------------------------------
+    function gestionarIntegridadArchivo(id, tracking, link, nombreCliente, telefono, origen) {
+        Swal.fire({
+            title: 'Gestión de Archivo Inicial',
+            html: `
+                <div class="text-start small">
+                    <p>Accediendo al archivo del pedido <b class="text-gold">${tracking}</b>.</p>
+
+                    <p class="text-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <b>Nota:</b> Si el archivo está privado, el sistema te permitirá contactar al cliente por WhatsApp.
+                    </p>
+
+                    <hr class="border-secondary">
+
+                    <p class="fw-bold text-info mb-1">Origen detectado:</p>
+                    <p class="mb-2"><b>${origen}</b></p>
+
+                    <p class="fw-bold text-info mb-1">Acciones disponibles:</p>
+                    <ul class="text-white-50">
+                        <li>Ver el archivo en la nube.</li>
+
+
+                         <li> Si te decides por una descarga con prefijo Se descargará El archivo a tu PC.</li>
+                            <li> Se programó Para que Este archivo Se borre automáticamente en 90 días del PC.</b></li></b>
+                              <li> Se programó Para que Este archivo Se borre automáticamente en 60 días de Google Drive.</li>
+                            <li>El archivo descargado llevará el prefijo <b>${origen}</b>.</li>
+
+
+                    </ul>
+
+                    <p class="text-info mt-2">
+                            <i class="fas fa-hdd me-1"></i>
+                            Guarda el archivo en la carpeta "Descargas"  De Windows como cualquier otro archivo.
+                        </p>
+
+
+                </div>
+            `,
+            icon: 'info',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: '<i class="fas fa-eye me-1"></i> VER EN NUBE',
+            denyButtonText: '<i class="fas fa-download me-1"></i> DESCARGAR CON PREFIJO',
+            cancelButtonText: 'CANCELAR',
+            confirmButtonColor: '#0ea5e9',
+            denyButtonColor: '#10b981',
+            background: '#000',
+            color: '#fff'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (link && link.startsWith('http')) {
+                    window.open(link, '_blank');
+                } else {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Link no disponible',
+                        text: 'No hay un enlace válido para abrir.',
+                        confirmButtonColor: '#F2C05F',
+                        background: '#000',
+                        color: '#fff'
+                    });
+                }
+            } else if (result.isDenied) {
+                descargarArchivoFisico(id, tracking, nombreCliente, telefono, origen, link);
+            }
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. MOTOR DE DESCARGA: USA ORIGEN + LINK EXACTO
+    // -------------------------------------------------------------------------
+    async function descargarArchivoFisico(pedidoId, tracking, nombreCliente, telefono, origen, urlDrive) {
+        if (!pedidoId) return;
+
+        Swal.fire({
+            title: 'Preparando descarga...',
+            text: 'Validando permisos y aplicando prefijo...',
+            allowOutsideClick: false,
+            background: '#000',
+            color: '#fff',
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const urlDescarga = `/api/v1/pedidos/${pedidoId}/descargar` +
+                `?origen=${encodeURIComponent(origen || 'archivo')}` +
+                `&link=${encodeURIComponent(urlDrive || '')}`;
+
+            const response = await fetch(urlDescarga);
+
+            if (!response.ok) {
+                await manejarErrorDescargaNube(response, tracking, nombreCliente, telefono, urlDrive);
+                return;
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+
+            let filename = `${tracking}-${origen}-archivo_adjunto`;
+
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                let serverName = contentDisposition
+                    .split('filename=')[1]
+                    .replace(/["']/g, '')
+                    .trim();
+
+                // Si el backend ya manda LEG-XXXX-origen-nombre.ext, se respeta.
+                if (serverName.startsWith(`${tracking}-${origen}-`)) {
+                    filename = serverName;
+                } else {
+                    // Limpieza defensiva para evitar duplicar prefijos
+                    if (serverName.startsWith(tracking)) {
+                        serverName = serverName.substring(tracking.length).replace(/^[-_]+/, '');
+                    }
+
+                    serverName = serverName.replace(/^(wps|tec|links|archivo)[-_]+/, '');
+
+                    filename = `${tracking}-${origen}-${serverName}`;
+                }
+            }
+
+            const urlBlob = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.style.display = 'none';
+            a.href = urlBlob;
+            a.download = filename;
+
+            document.body.appendChild(a);
+            a.click();
+
+            window.URL.revokeObjectURL(urlBlob);
+            document.body.removeChild(a);
+
+            Swal.close();
+
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de descarga',
+                html: `
+                    <div class="text-start small">
+                        <p>No se pudo iniciar la descarga del archivo.</p>
+                        <p class="text-warning mb-0">
+                            Detalle técnico: ${error.message || 'Error desconocido'}
+                        </p>
+                    </div>
+                `,
+                confirmButtonColor: '#d33',
+                background: '#000',
+                color: '#fff'
+            });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. MANEJO DE ARCHIVOS PRIVADOS / SIN PERMISOS
+    // -------------------------------------------------------------------------
+    async function manejarErrorDescargaNube(response, tracking, nombreCliente, telefono, urlDrive) {
+        let errorData = {};
+
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            errorData = {
+                error: 'ERROR_DESCARGA',
+                message: 'No se pudo leer el detalle del error.'
+            };
+        }
+
+        const status = response.status;
+
+        const esErrorDePermisos =
+            status === 401 ||
+            status === 403 ||
+            status === 404 ||
+            status === 400;
+
+        if (esErrorDePermisos) {
+            const telefonoLimpio = (telefono || '').replace(/\D/g, '');
+
+            const mensajeWhatsapp =
+                `Hola ${nombreCliente || ''}, soy Luis de Legión 3D. ` +
+                `Estoy revisando tu pedido ${tracking}, pero el archivo que enviaste no permite acceso o descarga. ` +
+                `Por favor revisa estos pasos:\n\n` +
+                `1. Abre tu archivo o carpeta en Drive / Dropbox / Mega.\n` +
+                `2. Activa la opción de compartir.\n` +
+                `3. Selecciona "Cualquier persona con el enlace puede ver".\n` +
+                `4. Vuelve a enviarme el link actualizado.\n\n` +
+                `Link actual recibido: ${urlDrive || 'No disponible'}`;
+
+            const waLink = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeWhatsapp)}`;
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Archivo sin acceso',
+                html: `
+                    <div class="text-start small">
+                        <p>El archivo existe como enlace, pero el sistema no pudo descargarlo.</p>
+
+                        <p class="text-warning fw-bold mb-2">
+                            Posible causa: archivo privado, link vencido, permiso restringido o recurso eliminado.
+                        </p>
+
+                        <div class="p-2 rounded border border-secondary bg-dark">
+                            <b>Código HTTP:</b> ${status}<br>
+                            <b>Detalle:</b> ${errorData.message || errorData.error || 'Sin detalle'}
+                        </div>
+
+                        <p class="mt-3 mb-0">
+                            Puedes contactar al cliente por WhatsApp para pedirle que libere el acceso.
+                        </p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonColor: '#25D366',
+                cancelButtonColor: '#333',
+                confirmButtonText: '<i class="fab fa-whatsapp me-1"></i> CONTACTAR CLIENTE',
+                cancelButtonText: 'CERRAR',
+                background: '#000',
+                color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (telefonoLimpio.length >= 8) {
+                        window.open(waLink, '_blank');
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Teléfono no disponible',
+                            text: 'El cliente no tiene un teléfono válido registrado. Contacta por correo.',
+                            confirmButtonColor: '#F2C05F',
+                            background: '#000',
+                            color: '#fff'
+                        });
+                    }
+                }
+            });
+
+            return;
+        }
+
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al descargar',
+            html: `
+                <div class="text-start small">
+                    <p>No se pudo descargar el archivo.</p>
+                    <p><b>Código HTTP:</b> ${status}</p>
+                    <p><b>Detalle:</b> ${errorData.message || errorData.error || 'Sin detalle'}</p>
+                </div>
+            `,
+            confirmButtonColor: '#d33',
+            background: '#000',
+            color: '#fff'
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. ACCIONES DE ESTADO: APROBAR / RECHAZAR
+    // -------------------------------------------------------------------------
+    async function ejecutarAccion(nuevoEstado, btn) {
+        const msj = document.getElementById('mensajeLuis').value;
+        const textoOriginal = btn.innerHTML;
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(`/api/v1/pedidos/${pedidoIdActual}/estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nuevoEstado: nuevoEstado,
+                    mensajeTriage: msj
+                })
+            });
+
+            if (resp.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Hecho!',
+                    text: 'Estado actualizado correctamente.',
+                    confirmButtonColor: '#F2C05F',
+                    background: '#000',
+                    color: '#fff'
+                }).then(() => location.reload());
+            } else {
+                throw new Error();
+            }
+
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Fallo de Sistema',
+                text: 'No se pudo procesar la acción.',
+                confirmButtonColor: '#d33',
+                background: '#000',
+                color: '#fff'
+            });
+
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. CREAR SOLICITUD MANUAL
+    // -------------------------------------------------------------------------
+    function abrirModalManual() {
+        document.getElementById('formManual').reset();
+        modalManual.show();
+    }
+
+    async function guardarSolicitudManual(btn) {
+        const payload = {
+            nombre: document.getElementById('manualNombre').value,
+            email: document.getElementById('manualEmail').value,
+            telefono: document.getElementById('manualTelefono').value,
+            servicioSolicitado: document.getElementById('manualServicio').value,
+            mensajeOriginal: document.getElementById('manualMensaje').value,
+            origenContacto: document.getElementById('manualOrigen').value
+        };
+
+        if (!payload.nombre || !payload.email) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos Vacíos',
+                text: 'Nombre y Email son obligatorios.',
+                confirmButtonColor: '#F2C05F',
+                background: '#000',
+                color: '#fff'
+            });
+            return;
+        }
+
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/api/v1/webhook/lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (resp.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Lead Registrado',
+                    text: 'Cliente ingresado al sistema.',
+                    confirmButtonColor: '#10b981',
+                    background: '#000',
+                    color: '#fff'
+                }).then(() => location.reload());
+            } else {
+                throw new Error();
+            }
+
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Fallo de Red',
+                text: 'Error al registrar la solicitud.',
+                confirmButtonColor: '#d33',
+                background: '#000',
+                color: '#fff'
+            });
+
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. UTILIDADES
+    // -------------------------------------------------------------------------
+    function editarComercial(id) {
+        if (id) {
+            window.location.href = '/solicitudes/historial?id=' + id;
+        }
+    }
+
+    function filtrarTabla(inputId, tablaId) {
+        let filter = document.getElementById(inputId).value.toUpperCase();
+        let trs = document.getElementById(tablaId).getElementsByTagName("tr");
+
+        for (let i = 1; i < trs.length; i++) {
+            let txt = trs[i].textContent || trs[i].innerText;
+            trs[i].style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+        }
+    }
+</script>
+</body>
+</html>

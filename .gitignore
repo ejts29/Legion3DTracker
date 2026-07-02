@@ -1,0 +1,5 @@
+tracker/src/main/resources/credentials/
+tracker/src/main/resources/application.properties
+uploads/
+tracker/uploads/
+*.docx

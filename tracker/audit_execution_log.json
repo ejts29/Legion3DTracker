@@ -1,0 +1,371 @@
+[
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "3. Comunicaci\u00f3n CRM",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "4. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error al procesar el formulario: Pedido no encontrado con el c\u00f3digo: LEG-0000"
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "5. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "6. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "7. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "8. Despacho (Starken)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 2: Rechazo Corporativo",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 2: Rechazo Corporativo",
+    "request": "2. Triage (Rechaza)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error al procesar el formulario: Pedido no encontrado con el c\u00f3digo: LEG-0000"
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "7. Despacho (Retiro)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error al procesar el formulario: Pedido no encontrado con el c\u00f3digo: LEG-0000"
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "7. Despacho (Drive)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error al procesar el formulario: Pedido no encontrado con el c\u00f3digo: LEG-0000"
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "7. Despacho (Mixto)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "FAIL",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error al procesar el formulario: Pedido no encontrado con el c\u00f3digo: LEG-0000"
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "5. Expirar",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "1. GET Todo",
+    "method": "GET",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "[{\"id\":2,\"cliente\":{\"id\":1,\"nombre\":\"Efr\u00e9n Tovar Silva\",\"email\":\"ejts29@gmail.com\",\"telefono\":\"+56952480417\",\"rut\":null,\"pedidos\":[2,{\"id\":3,\"cliente\":1,\"codigoSeguimiento\":\"LEG-84B6\",\"servicioSolicit"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "2. GET Uno",
+    "method": "GET",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": ""
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "3. Malformed JSON (Validation)",
+    "method": "POST",
+    "expected": 400,
+    "actual": 400,
+    "status": "PASS",
+    "response": "{\"estadoHttp\":400,\"tipoError\":\"Formato Incorrecto\",\"mensajeAmigable\":\"El sistema no pudo procesar los datos. Verifica no estar enviando texto en campos num\u00e9ricos (como las medidas o precios).\",\"rutaAf"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "4. ID Inexistente",
+    "method": "GET",
+    "expected": 404,
+    "actual": 404,
+    "status": "PASS",
+    "response": ""
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "5. DELETE (Borrado L\u00f3gico)",
+    "method": "DELETE",
+    "expected": 200,
+    "actual": 404,
+    "status": "FAIL",
+    "response": "Error: El pedido no existe."
+  }
+]

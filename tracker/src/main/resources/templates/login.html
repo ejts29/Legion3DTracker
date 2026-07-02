@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Legión 3D - Acceso</title>
+    <!-- Bootstrap 5.3.0: Framework para el diseño responsivo y centrado de la interfaz -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+
+    <!-- MÓDULO DE SEGURIDAD: PORTAL DE ACCESO ADMINISTRATIVO------
+  Ubicación: src/main/resources/templates/login.html
+  
+  Este componente actúa como la barrera de autenticación del sistema. 
+  Utiliza un esquema de "Contraseña Maestra" para simplificar el acceso 
+  administrativo en el taller, integrándose con el motor de seguridad 
+  de Spring Boot.
+-->
+
+    <style>
+        /* 
+           LÓGICA DE PRESENTACIÓN (UI):
+           - Se utiliza Flexbox para garantizar el centrado absoluto del formulario 
+             independientemente de la resolución de pantalla.
+           - Paleta de colores: negro (#0d0d0d) y oro (#c5a059) para mantener 
+             la identidad visual corporativa de Legión 3D.
+        */
+        body {
+            background-color: #0d0d0d;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* Login-card: Contenedor con contraste grisáceo para resaltar el área de entrada */
+        .login-card {
+            background: #736c6c;
+            border: 1px solid #c5a059;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 350px;
+            text-align: center;
+        }
+
+        /* Botón temático con tipografía en negrita para jerarquía visual */
+        .btn-gold {
+            background-color: #c5a059;
+            color: black;
+            font-weight: bold;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="login-card">
+        <h4 class="mb-4" style="color: #c5a059;">Legión 3D Tracker</h4>
+
+        <!-- 
+           FORMULARIO DE AUTENTICACIÓN:
+           - th:action="@{/login}": Atributo de Thymeleaf que procesa la ruta 
+             de destino dinámicamente hacia el controlador de seguridad.
+           - method="post": Método seguro para el envío de credenciales.
+        -->
+        <form th:action="@{/login}" method="post">
+            <!-- El campo 'name="password"' es mapeado automáticamente por Spring Security -->
+            <input type="password" name="password" class="form-control mb-3 bg-dark text-white border-secondary"
+                placeholder="Contraseña Maestra"> <!--  required>
+            
+            <!-- Manejo de Errores: Se muestra solo si el controlador detecta un fallo en la autenticación -->
+            <div th:if="${error}" class="text-danger small mb-3" th:text="${error}"></div>
+
+            <button type="submit" class="btn btn-gold w-100">ENTRAR</button>
+        </form>
+
+        <!-- Disparador de recuperación: Lógica de apoyo para el operador (Luis) -->
+        <button onclick="recuperar()" class="btn btn-link text-muted mt-3 small text-decoration-none">Olvidé mi
+            clave</button>
+    </div>
+
+    <script>
+        /**
+         * FUNCIÓN ASÍNCRONA: recuperar
+         * Gestiona la solicitud de recordatorio de credenciales mediante el protocolo HTTP.
+         * 
+         * Lógica Técnica:
+         * 1. Solicita confirmación al usuario para evitar disparos accidentales.
+         * 2. Utiliza la Fetch API para realizar una petición asíncrona (POST) al servidor.
+         * 3. 'async/await' asegura que el hilo principal no se bloquee mientras se envía el correo.
+         */
+        async function recuperar() {
+            // (aqui modificar al desplegar a produccion: actualizar el nombre del destinatario en la confirmación si fuera necesario) 
+            if (confirm("¿Enviar contraseña al correo de Luis?")) {
+                // (aqui modificar al desplegar a produccion: asegurar que el endpoint de recuperación /login/forgot sea accesible públicamente en el servidor) 
+                const res = await fetch('/login/forgot', { method: 'POST' });
+
+                // Muestra la respuesta en texto plano enviada por el backend (ej: "Correo enviado con éxito")
+                alert(await res.text());
+            }
+        }
+    </script>
+</body>
+
+</html>

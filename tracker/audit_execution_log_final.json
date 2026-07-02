@@ -1,0 +1,371 @@
+[
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: PENDIENTE_TECNICOS"
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "3. Comunicaci\u00f3n CRM",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Mensaje enviado exitosamente."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "4. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Ingenier\u00eda guardada correctamente y tel\u00e9fono actualizado."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "5. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 500,
+    "status": "FAIL",
+    "response": "{\"estadoHttp\":500,\"tipoError\":\"Error Interno del Servidor\",\"mensajeAmigable\":\"Ocurri\u00f3 un problema inesperado en el sistema de Legi\u00f3n 3D. Por favor, contacta a soporte. Detalle: Text '2026-05-15' could"
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "6. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Comprobante recibido. Activando alarma en el Dashboard de Finanzas."
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "7. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: LISTO_PARA_ENTREGA"
+  },
+  {
+    "scenario": "Escenario 1: Flujo Normal (Starken) + CRM",
+    "request": "8. Despacho (Starken)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "\u00a1Ciclo cerrado! M\u00e9todo aplicado: STARKEN"
+  },
+  {
+    "scenario": "Escenario 2: Rechazo Corporativo",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 2: Rechazo Corporativo",
+    "request": "2. Triage (Rechaza)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: RECHAZADA"
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: PENDIENTE_TECNICOS"
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Ingenier\u00eda guardada correctamente y tel\u00e9fono actualizado."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 500,
+    "status": "FAIL",
+    "response": "{\"estadoHttp\":500,\"tipoError\":\"Error Interno del Servidor\",\"mensajeAmigable\":\"Ocurri\u00f3 un problema inesperado en el sistema de Legi\u00f3n 3D. Por favor, contacta a soporte. Detalle: Text '2026-05-18' could"
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Comprobante recibido. Activando alarma en el Dashboard de Finanzas."
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: LISTO_PARA_ENTREGA"
+  },
+  {
+    "scenario": "Escenario 3: Retiro en Taller",
+    "request": "7. Despacho (Retiro)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "\u00a1Ciclo cerrado! M\u00e9todo aplicado: RETIRO"
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: PENDIENTE_TECNICOS"
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Ingenier\u00eda guardada correctamente y tel\u00e9fono actualizado."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 500,
+    "status": "FAIL",
+    "response": "{\"estadoHttp\":500,\"tipoError\":\"Error Interno del Servidor\",\"mensajeAmigable\":\"Ocurri\u00f3 un problema inesperado en el sistema de Legi\u00f3n 3D. Por favor, contacta a soporte. Detalle: Text '2026-05-25' could"
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Comprobante recibido. Activando alarma en el Dashboard de Finanzas."
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: LISTO_PARA_ENTREGA"
+  },
+  {
+    "scenario": "Escenario 4: Dise\u00f1o 3D + Digital",
+    "request": "7. Despacho (Drive)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "\u00a1Ciclo cerrado! M\u00e9todo aplicado: DIGITAL"
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: PENDIENTE_TECNICOS"
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Ingenier\u00eda guardada correctamente y tel\u00e9fono actualizado."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 500,
+    "status": "FAIL",
+    "response": "{\"estadoHttp\":500,\"tipoError\":\"Error Interno del Servidor\",\"mensajeAmigable\":\"Ocurri\u00f3 un problema inesperado en el sistema de Legi\u00f3n 3D. Por favor, contacta a soporte. Detalle: Text '2026-05-30' could"
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "5. Pago",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Comprobante recibido. Activando alarma en el Dashboard de Finanzas."
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "6. Listo para Entrega",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: LISTO_PARA_ENTREGA"
+  },
+  {
+    "scenario": "Escenario 5: Dise\u00f1o + Mixto",
+    "request": "7. Despacho (Mixto)",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "\u00a1Ciclo cerrado! M\u00e9todo aplicado: MIXTO"
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "1. Webhook (Lead)",
+    "method": "POST",
+    "expected": 201,
+    "actual": 200,
+    "status": "PASS (200 instead of 201)",
+    "response": "Conexi\u00f3n con DB exitosa. Cliente y Pedido guardados, y correo inicial enviado."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "2. Triage",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: PENDIENTE_TECNICOS"
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "3. Datos T\u00e9cnicos",
+    "method": "POST",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Ingenier\u00eda guardada correctamente y tel\u00e9fono actualizado."
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "4. Presupuesto",
+    "method": "POST",
+    "expected": 200,
+    "actual": 500,
+    "status": "FAIL",
+    "response": "{\"estadoHttp\":500,\"tipoError\":\"Error Interno del Servidor\",\"mensajeAmigable\":\"Ocurri\u00f3 un problema inesperado en el sistema de Legi\u00f3n 3D. Por favor, contacta a soporte. Detalle: Text '2026-05-15' could"
+  },
+  {
+    "scenario": "Escenario 6: Cotizaci\u00f3n Expirada",
+    "request": "5. Expirar",
+    "method": "PATCH",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "Estado actualizado exitosamente a: EXPIRADO"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "1. GET Todo",
+    "method": "GET",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "[{\"id\":2,\"cliente\":{\"id\":1,\"nombre\":\"Efr\u00e9n Tovar Silva\",\"email\":\"ejts29@gmail.com\",\"telefono\":\"+56952480417\",\"rut\":\"25698445-8\",\"pedidos\":[2,{\"id\":3,\"cliente\":1,\"codigoSeguimiento\":\"LEG-84B6\",\"servici"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "2. GET Uno",
+    "method": "GET",
+    "expected": 200,
+    "actual": 200,
+    "status": "PASS",
+    "response": "{\"id\":2,\"cliente\":{\"id\":1,\"nombre\":\"Efr\u00e9n Tovar Silva\",\"email\":\"ejts29@gmail.com\",\"telefono\":\"+56952480417\",\"rut\":\"25698445-8\",\"pedidos\":[2,{\"id\":3,\"cliente\":1,\"codigoSeguimiento\":\"LEG-84B6\",\"servicio"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "3. Malformed JSON (Validation)",
+    "method": "POST",
+    "expected": 400,
+    "actual": 400,
+    "status": "PASS",
+    "response": "{\"estadoHttp\":400,\"tipoError\":\"Formato Incorrecto\",\"mensajeAmigable\":\"El sistema no pudo procesar los datos. Verifica no estar enviando texto en campos num\u00e9ricos (como las medidas o precios).\",\"rutaAf"
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "4. ID Inexistente",
+    "method": "GET",
+    "expected": 404,
+    "actual": 404,
+    "status": "PASS",
+    "response": ""
+  },
+  {
+    "scenario": "Escenario 7: Operaciones CRUD Administrador",
+    "request": "5. DELETE (Borrado L\u00f3gico)",
+    "method": "DELETE",
+    "expected": 200,
+    "actual": 400,
+    "status": "FAIL",
+    "response": "Error: Solo puedes archivar pedidos en estado ENTREGADO o RECHAZADA."
+  }
+]

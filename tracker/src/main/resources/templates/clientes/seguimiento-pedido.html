@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Estado de tu Proyecto - Legión 3D</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <!--
+     ---------------------------------------------------------------
+      LEGIÓN 3D TRACKER : VISOR DE SEGUIMIENTO DEL CLIENTE (TRACKING)
+      ----------------------------------------------------------------
+      A nivel de modelo de negocio y experiencia de usuario (UX), esta es la pantalla 
+      más valiosa del sistema. Aquí es donde el cliente puede consultar en tiempo real 
+      si su pieza 3D está en revisión, en máquina o lista para ser despachada. 
+      Arquitectónicamente, esto reduce drásticamente la carga administrativa de Luis, 
+      ya que elimina la necesidad de responder mensajes repetitivos por WhatsApp.
+      
+      Declaramos el motor de plantillas Thymeleaf (xmlns:th) en la raíz porque esta vista 
+      es 100% dinámica. Spring Boot inyecta aquí los datos exactos del pedido consultado 
+      directamente desde la base de datos MySQL antes de enviar el HTML final al navegador.
+    -->
+    <style>
+        /*
+           ESTILOS BASE Y UTILIDADES DE LA VISTA
+           A nivel de diseño de interfaz (UI), esta pantalla debe ser limpia y directa. 
+           El cliente entra aquí ansioso por saber el estado de su pieza, por lo que 
+           eliminamos cualquier distracción visual y nos centramos en el alto contraste.
+        */
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+            /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+        /* Fondo casi negro para reducir la fatiga visual y fuente moderna */
+        .text-gold {
+            color: #F2C05F !important;
+        }
+
+        /* Clase utilitaria para forzar el acento corporativo en textos clave */
+        .bg-gold {
+            background-color: #F2C05F !important;
+            color: #000 !important;
+        }
+
+        /* Clase utilitaria para fondos destacados, asegurando contraste con texto negro */
+        .card-dark {
+            background-color: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+        }
+
+        /* Contenedores modulares para agrupar la información del pedido de forma ordenada */
+
+        /* ---------------------------------------------------------------
+           BARRA DE PROGRESO (STEPPER) - CORE VISUAL
+           ----------------------------------------------------------------
+           Este bloque es la traducción visual de nuestra máquina de estados del backend. 
+           Transformamos los estados técnicos de la base de datos (como "EN_PRODUCCION") 
+           en una línea de tiempo gráfica muy intuitiva para el usuario final.
+        */
+        /* STEpper (Barra de Progreso) */
+        .stepper-wrapper {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 2rem;
+            padding: 0 20px;
+        }
+
+        /* Contenedor principal que distribuye los pasos uniformemente */
+        .stepper-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 25px;
+            left: 5%;
+            width: 90%;
+            height: 2px;
+            background: #333;
+            z-index: 0;
+        }
+
+        /* La línea gris de fondo que conecta todos los iconos de la línea de tiempo */
+        .step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            width: 20%;
+        }
+
+        /* Contenedor individual para cada etapa del proceso */
+        .step-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #222;
+            color: #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-size: 1.2rem;
+            border: 2px solid #333;
+            transition: 0.3s;
+        }
+
+        /* El círculo que envuelve al icono, diseñado para destacar sobre la línea conectora */
+        .step-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+            font-weight: 700;
+        }
+
+        /* Texto pequeño y descriptivo de la etapa */
+
+        /* ---------------------------------------------------------------
+           ESTADOS DINÁMICOS DEL STEPPER
+           ----------------------------------------------------------------
+           Aquí aplicamos clases que Thymeleaf inyectará dinámicamente según 
+           la información que llegue desde Spring Boot. Esto le da vida a la interfaz.
+        */
+        /* Estados Activos del Stepper */
+        .step.active .step-icon {
+            background: #F2C05F;
+            color: #000;
+            border-color: #F2C05F;
+            box-shadow: 0 0 15px rgba(242, 192, 95, 0.4);
+        }
+
+        /* Etapa actual: Brilla intensamente con el color corporativo y una sombra proyectada */
+        .step.active .step-label {
+            color: #F2C05F;
+        }
+
+        /* El texto de la etapa actual también se ilumina */
+        .step.completed .step-icon {
+            background: #333;
+            color: #F2C05F;
+            border-color: #F2C05F;
+        }
+
+        /* Etapas ya superadas: Fondo apagado pero con borde dorado para indicar que ya se completó */
+        .step.completed .step-label {
+            color: #ccc;
+        }
+
+        /* Texto en gris claro para las etapas ya superadas */
+
+        /* ---------------------------------------------------------------
+           CONTROLES ADICIONALES
+           ----------------------------------------------------------------
+        */
+        .form-control-dark {
+            background-color: #000;
+            border: 1px solid #333;
+            color: #fff;
+        }
+
+        /* Cajas de texto oscuras en caso de que el cliente necesite ingresar otro código */
+        .form-control-dark:focus {
+            background-color: #111;
+            border-color: #F2C05F;
+            color: #fff;
+            box-shadow: none;
+        }
+
+        /* Efecto de enfoque dorado, eliminando el brillo azul clásico del navegador */
+
+        /* SOPORTE FLOTANTE WHATSAPP */
+        .btn-support-fixed {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            background-color: #25d366;
+            color: white;
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-support-fixed:hover {
+            transform: scale(1.05);
+            color: white;
+            background-color: #128c7e;
+        }
+
+        /* Mejora de claridad para textos secundarios */
+        .text-muted {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .text-cyan {
+            color: #00FFFF !important;
+        }
+
+        .border-cyan {
+            border-color: #00FFFF !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 
+      ---------------------------------------------------------------
+      MOTOR DE ESTADOS VISUALES (THYMELEAF)
+      ----------------------------------------------------------------
+      A nivel de arquitectura, usamos 'th:with' para crear una variable temporal 
+      llamada 'nivel'. Evaluamos el 'estadoActual' del pedido (que viene de la base de datos) 
+      y lo traducimos a un número del 1 al 5. Este número es el que controla gráficamente 
+      qué iconos del Stepper se iluminan de dorado y cuáles se quedan en gris.
+    -->
+    <div>
+
+        <div class="container py-5" style="max-width: 900px;">
+
+            <div class="text-center mb-5">
+                <h1 class="fw-bold mb-2">ESTADO DE TU PROYECTO</h1>
+                <p class="text-muted fs-5">Código de Seguimiento: <span id="codigoSeguimientoDOM"
+                        class="text-gold fw-bold" th:text="${pedido.codigoSeguimiento}">LEG-XXXX</span></p>
+            </div>
+
+            <!--RENDERIZADO DEL STEPPER----
+              Aquí Thymeleaf aplica dinámicamente las clases 'active' (dorado) o 
+              'completed' (gris) dependiendo del cálculo matemático de la variable 'nivel'.
+            -->
+<!-- RENDERIZADO DEL STEPPER MAESTRO (7 PASOS) ----
+                 Optimizado para el flujo de Pago Inicial y Pago Final.
+            -->
+            <div class="card-dark p-4 mb-4">
+                <div class="stepper-wrapper mt-3">
+                    <!-- 1. Recibido -->
+                    <div class="step" th:classappend="${nivel >= 1 ? (nivel == 1 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-file-import"></i></div>
+                        <div class="step-label">Recibido</div>
+                    </div>
+                    <!-- 2. Evaluación -->
+                    <div class="step" th:classappend="${nivel >= 2 ? (nivel == 2 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-microchip"></i></div>
+                        <div class="step-label">Evaluación</div>
+                    </div>
+                    <!-- 3. Pago (Inicial) -->
+                    <div class="step" th:classappend="${nivel >= 3 ? (nivel == 3 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-wallet"></i></div>
+                        <div class="step-label">Pago</div>
+                    </div>
+                    <!-- 4. Producción -->
+                    <div class="step" th:classappend="${nivel >= 4 ? (nivel == 4 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-cogs"></i></div>
+                        <div class="step-label">Producción</div>
+                    </div>
+                    <!-- 5. Pago Final -->
+                    <div class="step" th:classappend="${nivel >= 5 ? (nivel == 5 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-money-check-alt"></i></div>
+                        <div class="step-label">Pago Final</div>
+                    </div>
+                    <!-- 6. En Despacho (Se activa con link de Starken/Retiro) -->
+                    <div class="step" th:classappend="${nivel >= 6 ? (nivel == 6 ? 'active' : 'completed') : ''}">
+                        <div class="step-icon"><i class="fas fa-truck-loading"></i></div>
+                        <div class="step-label">En Despacho</div>
+                    </div>
+                    <!-- 7. Entregado -->
+                    <div class="step" th:classappend="${nivel >= 7 ? 'active' : ''}">
+                        <div class="step-icon"><i class="fas fa-box-open"></i></div>
+                        <div class="step-label">Entregado</div>
+                    </div>
+                </div>
+            </div>
+
+            
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card-dark p-4 h-100">
+                        <h5 class="fw-bold mb-4"><i class="fas fa-info-circle text-gold me-2"></i> Detalles del
+                            Expediente</h5>
+
+                        <div class="d-flex justify-content-between mb-2 border-bottom border-secondary pb-2">
+                            <span class="text-muted small fw-bold">SERVICIO</span>
+                            <span class="text-light small" th:text="${pedido.servicioSolicitado}">Impresión 3D</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-4 border-bottom border-secondary pb-2">
+                            <span class="text-muted small fw-bold">ESTADO ACTUAL</span>
+                            <span class="badge border border-warning text-warning"
+                                th:text="${pedido.estadoActual}">EN_PRODUCCION</span>
+                        </div>
+
+<!-- LÓGICA DE DESGLOSE FINANCIERO (DESACOPLADA Y CORREGIDA) -->
+                        <div th:if="${pedido.precioFinal != null}" class="mb-4">
+
+                            <!-- Precio Referencial (calculado en vivo solo para marketing) -->
+                            <div class="d-flex justify-content-between mb-1"
+                                 th:if="${pedido.descuentoPorcentaje != null and pedido.descuentoPorcentaje > 0}">
+                                <span class="text-muted small">Precio Referencial</span>
+                                <span class="text-secondary small text-decoration-line-through"
+                                      th:text="'$' + ${#numbers.formatDecimal((pedido.precioFinal / (1 - (pedido.descuentoPorcentaje / 100.0))) * 1.19, 0, 'COMMA', 0, 'POINT')}">
+                                </span>
+                            </div>
+
+                            <!-- Etiqueta de Descuento (solo visual) -->
+                            <div class="d-flex justify-content-between mb-2"
+                                 th:if="${pedido.descuentoPorcentaje != null and pedido.descuentoPorcentaje > 0}">
+                                <span class="text-muted small fw-bold">Descuento Comercial aplicado</span>
+                                <span class="badge bg-success text-white px-2 py-1"
+                                      th:text="${pedido.descuentoPorcentaje} + '% OFF'"></span>
+                            </div>
+
+                            <!-- Valores reales (NETO manda todo) -->
+                            <div class="p-3 rounded border border-secondary mt-2" style="background: rgba(0, 255, 255, 0.02);">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Valor Neto Final</span>
+                                    <span class="text-light small"
+                                          th:text="'$' + ${#numbers.formatDecimal(pedido.precioFinal, 0, 'COMMA', 0, 'POINT')}"></span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted small">IVA (19%)</span>
+                                    <span class="text-light small"
+                                          th:text="'$' + ${#numbers.formatDecimal(pedido.precioFinal * 0.19, 0, 'COMMA', 0, 'POINT')}"></span>
+                                </div>
+                                <div class="d-flex justify-content-between pt-2 border-top border-secondary">
+                                    <span class="text-cyan fw-bold">TOTAL A PAGAR (BRUTO)</span>
+                                    <span class="text-cyan fw-bold fs-5"
+                                          th:text="'$' + ${#numbers.formatDecimal(pedido.precioFinal * 1.19, 0, 'COMMA', 0, 'POINT')}"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3" th:if="${pedido.fechaEntregaEstimada != null}">
+                            <span class="text-muted small fw-bold">ENTREGA ESTIMADA</span>
+                            <span class="text-light"
+                                th:text="${#temporals.format(pedido.fechaEntregaEstimada, 'dd-MM-yyyy')}"></span>
+                        </div>
+
+                        <!-- BITÁCORA DE MENSAJES (Transparencia Total) -->
+                        <div class="mt-4 border-top border-secondary pt-3">
+                            <h6 class="text-gold fw-bold small mb-3"><i class="fas fa-comments me-2"></i> BITÁCORA DE
+                                MENSAJES</h6>
+
+                            <!-- Mensaje Original del Cliente -->
+                            <div class="mb-3 p-3 rounded"
+                                style="background: rgba(255, 255, 255, 0.05); border-left: 3px solid #555;">
+                                <small class="text-white-50 fw-bold d-block mb-1">TU MENSAJE ORIGINAL</small>
+                                <p class="mb-0 text-light small"
+                                    th:text="${pedido.mensajeOriginal ?: 'Sin mensaje adjunto.'}">Mensaje...</p>
+                            </div>
+
+                            <!-- Mensaje del Taller (Triage) -->
+                            <div class="p-3 rounded"
+                                style="background: rgba(242, 192, 95, 0.05); border-left: 3px solid #F2C05F;"
+                                th:if="${pedido.mensajeTriage != null and pedido.mensajeTriage != ''}">
+                                <small class="text-gold fw-bold d-block mb-1">RESPUESTA DEL TALLER</small>
+                                <p class="mb-0 text-light small fst-italic" th:text="${pedido.mensajeTriage}"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <!-- 
+                      ---------------------------------------------------------------
+                      PANTALLA DINÁMICA DE ACCIONES (CALL TO ACTION)
+                      ----------------------------------------------------------------
+                      Esta es la sección más interactiva del seguimiento. 
+                      Dependiendo del estado, muestra instrucciones específicas al cliente.
+                    -->
+                    <div class="card-dark p-4 h-100 d-flex flex-column justify-content-center text-center">
+
+                        <!-- CASO 1: El presupuesto está listo y requiere pago -->
+                        <div th:if="${pedido.estadoActual == 'PRESUPUESTADO'}" class="animate-fade">
+                            <i class="fas fa-file-invoice-dollar fa-3x text-gold mb-3"></i>
+                            <h5 class="fw-bold">¡Tu cotización está lista!</h5>
+                            <p class="text-light small mb-3">Realiza la transferencia para iniciar la producción.</p>
+
+                            <div class="text-start bg-black p-4 rounded border border-secondary mb-4 shadow-sm"
+                                style="background: linear-gradient(145deg, #000, #111);">
+                                <label
+                                    class="label-tech-bright text-gold mb-3 d-block border-bottom border-secondary pb-2">DATOS
+                                    DE TRANSFERENCIA</label>
+
+                                <div class="row g-2 small mb-3">
+                                    <div class="col-4 text-muted">BANCO:</div>
+                                    <div class="col-8 fw-bold">BancoEstado (Cuenta RUT)</div>
+
+                                    <div class="col-4 text-muted">TITULAR:</div>
+                                    <div class="col-8 fw-bold">Luis Lobo</div>
+
+                                    <div class="col-4 text-muted">RUT:</div>
+                                    <div class="col-8 fw-bold">12.345.678-9</div>
+
+                                    <div class="col-4 text-muted">EMAIL:</div>
+                                    <div class="col-8 fw-bold text-info">pedidolegion3d@gmail.com</div>
+                                </div>
+
+                                <div class="p-3 rounded border border-cyan text-center"
+                                    style="background: rgba(0, 255, 255, 0.05);">
+                                    <small class="text-cyan d-block mb-1 fw-bold">TOTAL A PAGAR (BRUTO)</small>
+                                    <h3 id="displayTotalBruto" class="text-cyan fw-bold mb-0"
+                                        th:text="'$' + ${#numbers.formatDecimal(pedido.precioFinal * 1.19, 0, 'COMMA', 0, 'POINT')}">
+                                    </h3>
+                                    <small class="text-white-50">(Incluye IVA 19%)</small>
+                                </div>
+                            </div>
+
+                            <!-- FLUJO ATÓMICO: Carga y Notificación -->
+                            <div class="d-flex flex-column gap-3">
+                                <div class="text-start">
+                                    <label for="comprobanteInput"
+                                        class="form-label text-white-50 small fw-bold">ADJUNTAR COMPROBANTE (JPG, PNG,
+                                        PDF)</label>
+                                    <input type="file" id="comprobanteInput" accept="image/*,application/pdf"
+                                        class="form-control form-control-dark py-2">
+                                </div>
+
+                                <button onclick="ejecutarPagoAtomico(this)"
+                                    class="btn btn-gold bg-gold fw-bold py-3 shadow">
+                                    <i class="fas fa-upload me-2"></i> ENVIAR COMPROBANTE
+                                </button>
+
+                                <small class="text-muted" style="font-size: 0.65rem;">
+                                    Al enviar, tu pedido pasará a "En Verificación" y se abrirá WhatsApp para avisar al
+                                    taller.
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- CASO 2: El cliente ya notificó el pago -->
+                        <div th:if="${pedido.estadoActual == 'PAGO_ENVIADO'}" class="animate-fade">
+                            <div class="mb-3">
+                                <i class="fas fa-check-circle fa-5x text-success"
+                                    style="filter: drop-shadow(0 0 15px rgba(40, 167, 69, 0.4));"></i>
+                            </div>
+                            <h2 class="fw-bold text-success mb-2">Comprobante Recibido</h2>
+                            <p class="text-muted small px-4">Estamos validando tu pago en finanzas. En cuanto se
+                                confirme, tu proyecto pasará automáticamente a las máquinas de impresión 3D.</p>
+                            <div class="mt-4 p-2 rounded bg-dark border border-secondary d-inline-block px-4">
+                                <small class="text-gold fw-bold">ESTADO: EN VERIFICACIÓN</small>
+                            </div>
+                        </div>
+
+                        <!-- CASO 3: El pedido está en las máquinas o fue entregado -->
+<!-- CASO 3: El pedido está en máquinas o listo, evaluamos si debe dinero -->
+                        <div th:if="${nivel >= 4}">
+                            
+                            <!-- SUB-CASO A: TIENE DEUDA (PAGO CONTRA ENTREGA) -->
+                            <div th:if="${pedido.estadoActual == 'LISTO_PARA_ENTREGA' and (pedido.precioFinal * 1.19) > (#aggregates.sum(pedido.pagos.![monto]) ?: 0) * 1.19 + 5}" class="animate-fade">
+                                <i class="fas fa-hand-holding-usd fa-3x text-gold mb-3"></i>
+                                <h5 class="fw-bold">¡Proyecto Finalizado!</h5>
+                                <p class="text-light small mb-3">Tu pieza está lista. Para liberar el despacho, por favor cancela el saldo pendiente.</p>
+
+                                <div class="p-3 rounded border border-cyan text-center mb-4" style="background: rgba(0, 255, 255, 0.05);">
+                                    <small class="text-cyan d-block mb-1 fw-bold">SALDO PENDIENTE A PAGAR</small>
+                                    <h3 class="text-cyan fw-bold mb-0" 
+                                        th:with="totalBruto=${pedido.precioFinal * 1.19}, totalPagadoBruto=${(#aggregates.sum(pedido.pagos.![monto]) ?: 0) * 1.19}"
+                                        th:text="'$' + ${#numbers.formatDecimal(totalBruto - totalPagadoBruto, 0, 'COMMA', 0, 'POINT')}">
+                                    </h3>
+                                </div>
+
+                                <!-- Reutilizamos el motor de carga de comprobante -->
+                                <div class="d-flex flex-column gap-3">
+                                    <div class="text-start">
+                                        <label for="comprobanteInput" class="form-label text-white-50 small fw-bold">ADJUNTAR PAGO FINAL</label>
+                                        <input type="file" id="comprobanteInput" accept="image/*,application/pdf" class="form-control form-control-dark py-2">
+                                    </div>
+                                    <button onclick="ejecutarPagoAtomico(this)" class="btn btn-gold bg-gold fw-bold py-3 shadow">
+                                        <i class="fas fa-upload me-2"></i> NOTIFICAR PAGO FINAL
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- SUB-CASO B: PAGADO O EN PRODUCCIÓN -->
+                            <div th:unless="${pedido.estadoActual == 'LISTO_PARA_ENTREGA' and (pedido.precioFinal * 1.19) > (#aggregates.sum(pedido.pagos.![monto]) ?: 0) * 1.19 + 5}">
+                                <i class="fas fa-check-circle fa-3x text-gold mb-3"></i>
+                                <h5 class="fw-bold">Todo en orden</h5>
+                                <p class="text-muted small">No tienes acciones pendientes. Te notificaremos por correo cuando haya actualizaciones en tu envío.</p>
+                            </div>
+                        </div>
+
+    <!-- Elemento clave: Inyectamos silenciosamente el ID de la base de datos para usarlo en Javascript -->
+    <input type="hidden" id="pedidoId" th:value="${pedido.id}">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // -----------------------------------------------------------------------
+        // FUNCIÓN ATÓMICA: ejecutarPagoAtomico (Upload -> Sync -> WhatsApp)
+        // -----------------------------------------------------------------------
+        async function ejecutarPagoAtomico(btn) {
+            const input = document.getElementById('comprobanteInput');
+            const trackingCode = document.getElementById('codigoSeguimientoDOM').innerText || "tu pedido";
+            const pedidoId = document.getElementById('pedidoId').value;
+
+            // 1. VALIDACIÓN PREVIA
+            if (!input.files || input.files.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Falta Comprobante',
+                    text: 'Por favor, selecciona el archivo de tu transferencia antes de enviar.',
+                    confirmButtonColor: '#F2C05F'
+                });
+                return;
+            }
+
+            const archivo = input.files[0];
+
+            // Bloqueo de UI para evitar duplicados
+            const originalTxt = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> PROCESANDO...';
+            btn.disabled = true;
+
+            Swal.fire({
+                title: 'Procesando Documento...',
+                text: 'Subiendo comprobante de forma segura a la nube.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                // 2. FLUJO A: SUBIDA PURA DE ARCHIVO (SIN REGISTRAR DINERO)
+                const formData = new FormData();
+                formData.append("archivo", archivo);
+
+                const uploadRes = await fetch(`/api/v1/pedidos/${trackingCode}/comprobante-pago`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadRes.ok) throw new Error("No pudimos procesar el archivo. Reintenta o contacta a soporte.");
+
+                // 3. FLUJO B: CAMBIO DE ESTADO A 'PAGO_ENVIADO'
+                const statusRes = await fetch(`/api/v1/pedidos/${pedidoId}/estado`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nuevoEstado: "PAGO_ENVIADO",
+                        mensajeTriage: "Comprobante cargado por el cliente desde el portal."
+                    })
+                });
+
+                if (!statusRes.ok) throw new Error("Error al sincronizar el estado del pedido.");
+
+                // 4. ALERTA FINAL Y REDIRECCIÓN WHATSAPP
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Comprobante Recibido!',
+                    text: 'Tu pago está en verificación. Vamos a notificar al taller ahora.',
+                    confirmButtonText: 'Notificar por WhatsApp',
+                    allowOutsideClick: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const phone = "56967879555";
+                        const msg = "💰 ¡Hola Legión 3D! Acabo de enviar el comprobante de mi pedido *" + trackingCode + "*. Por favor, verifíquenlo en el Dashboard.";
+
+                        window.open('https://api.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg), '_blank');
+                        location.reload();
+                    }
+                });
+
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Fallo en la Operación',
+                    text: error.message,
+                    confirmButtonColor: '#d33'
+                });
+                btn.innerHTML = originalTxt;
+                btn.disabled = false;
+            }
+        }
+    </script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <a th:href="'https://wa.me/56967879555?text=' + ${#uris.escapeQueryParam('Hola Legión 3D, tengo una duda con mi proyecto ' + pedido.codigoSeguimiento)}"
+        target="_blank" class="btn-support-fixed">
+        <i class="fab fa-whatsapp me-2 fs-4"></i> ¿Dudas? Comunícate aquí
+    </a>
+
+</body>
+
+</html>

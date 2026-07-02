@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Legión 3D - Panel de Cotización</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!--
+  ---------------------------------------------------------------
+  LEGIÓN 3D TRACKER : MÓDULO DE COTIZACIONES (GESTIÓN COMERCIAL)
+  ---------------------------------------------------------------
+  Ubicación: src/main/resources/templates/solicitudes/cotizaciones.html
+
+  Este módulo representa el núcleo financiero y comercial del taller de Luis. 
+  Nuestro equipo diseñó esta interfaz para permitir la transformación de los 
+  requerimientos técnicos recolectados en el "Formulario Inteligente" en una 
+  propuesta comercial formal (presupuesto). 
+
+  Arquitectónicamente, esta pantalla opera mediante una lógica de filtrado 
+  dinámico ejecutada por Thymeleaf, la cual extrae únicamente los expedientes 
+  en estado 'A_COTIZACION'. Además, implementamos un sistema de "Seguridad de 
+  Datos" mediante un bloqueo de campos (switch) para asegurar que, una vez 
+  definido el precio final, no se realicen modificaciones accidentales antes 
+  del guardado definitivo en la base de datos MySQL.
+-->
+
+    <style>
+        /* 
+           ---------------------------------------------------------
+           ESTILOS ESPECÍFICOS DEL MÓDULO DE COTIZACIÓN
+           ---------------------------------------------------------
+        */
+
+        /* Optimización de contraste para la legibilidad de datos numéricos en el tema oscuro */
+        .text-white-bright {
+            color: #ffffff !important;
+        }
+
+        /* Etiquetas técnicas: Utilizamos la variable corporativa Oro para resaltar 
+           los títulos de los datos técnicos provenientes del cliente (UX jerárquica) */
+        .label-tech-bright {
+            color: var(--l3d-gold);
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+            /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+html {
+    font-size: 90% !important; 
+}
+
+        /* Contenedores de dimensiones: Diseñados para organizar visualmente las 
+           medidas (X, Y, Z) de la pieza, facilitando el cálculo de material al operador */
+        .measure-box-tech {
+            background: #000;
+            border: 1px solid var(--l3d-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        /* Bitácora del Pedido: Sistema visual de línea de tiempo (Timeline) para 
+           auditar el progreso de cada expediente desde su recepción hasta la cotización */
+        .bitacora-item {
+            border-left: 2px solid var(--l3d-border);
+            padding-left: 20px;
+            position: relative;
+            padding-bottom: 20px;
+        }
+
+        /* Indicador visual de la bitácora (punto de unión de la línea de tiempo) */
+        .bitacora-item::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+        }
+
+        /* Caja de Información Adicional: Resaltado sutil para observaciones 
+           críticas del cliente que pueden afectar el presupuesto final */
+        .info-adicional-box {
+            background: rgba(242, 192, 95, 0.05);
+            border: 1px solid rgba(242, 192, 95, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        /* Personalización de Switches: Ajuste visual de los controles de Bootstrap 
+           para el sistema de bloqueo de campos de seguridad financiera */
+        .form-switch .form-check-input {
+            width: 3em;
+            height: 1.5em;
+            cursor: pointer;
+        }
+
+        /* Colores personalizados para el switch en estado activo (bloqueado) */
+        .form-switch .form-check-input:checked {
+            background-color: var(--l3d-gold);
+            border-color: var(--l3d-gold);
+        }
+    </style>
+</head>
+
+<body class="bg-black text-white">
+
+    <!--- ESTRUCTURA OPERATIVA: BANDEJA DE ENTRADA Y PANEL DE DETALLE-------
+      Esta sección implementa un patrón de diseño de "Single Page" 
+      dentro del módulo. Alternamos entre el listado global y el 
+      detalle profundo del pedido sin recargar la página, mejorando 
+      la velocidad de respuesta del administrador.
+    -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Inyección de componentes globales (Mantenimiento centralizado) -->
+            <div th:replace="~{layout/sidebar :: sidebar}"></div>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+                <!-- SECCIÓN 1: LISTADO DE PEDIDOS (Filtrado por estado A_COTIZACION) -->
+                <div id="seccion-listado" class="animate-fade">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="fw-bold m-0 text-white">
+                            <i class="fas fa-file-invoice-dollar text-gold me-2"></i> Módulo de Cotizaciones
+                        </h2>
+                        <button class="btn btn-dark btn-sm border-secondary opacity-50"
+                            onclick="location.reload()">REFRESCAR BANDEJA</button>
+                    </div>
+
+                    <div class="section-container shadow-lg">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="fw-bold text-white small text-uppercase">Pedidos listos para
+                                Presupuestar</span>
+                            <!-- Búsqueda en tiempo real sobre la tabla (Frontend Filter) -->
+                            <div class="input-group" style="max-width: 300px;">
+                                <span class="input-group-text bg-black border-secondary text-gold"><i
+                                        class="fas fa-search"></i></span>
+                                <input type="text" id="busquedaCotizacion" class="form-control l3d-input"
+                                    placeholder="Buscar LEG-XXXX..."
+                                    onkeyup="filtrarTabla('busquedaCotizacion', 'tablaCotizacion')">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover table-l3d m-0" id="tablaCotizacion">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-4">TRACKING</th>
+                                        <th>CLIENTE</th>
+                                        <th>SERVICIO</th>
+                                        <th>ESTADO</th>
+                                        <th class="text-end pe-4">ACCIÓN</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 
+                                        LÓGICA THYMELEAF: 
+                                        Solo se renderizan los pedidos cuya 'huella de estado' es 'A_COTIZACION'.
+                                    -->
+                                    <tr th:each="pedido : ${pedidos}" th:if="${pedido?.estadoActual == 'COTIZACION'}"
+                                        class="align-middle">
+                                        <td class="ps-4 fw-bold text-info font-monospace"
+                                            th:text="${pedido?.codigoSeguimiento}">LEG-XXXX</td>
+                                        <td>
+                                            <div class="fw-bold text-white-bright" th:text="${pedido?.cliente?.nombre}">
+                                                Nombre Cliente</div>
+                                            <div class="text-white-50 small" th:text="${pedido?.cliente?.email}">
+                                                email@mail.com</div>
+                                        </td>
+                                        <td class="small text-white" th:text="${pedido?.servicioSolicitado}">Servicio
+                                        </td>
+                                        <td><span class="status-badge text-warning"
+                                                th:text="${pedido?.estadoActual}">ESTADO</span></td>
+                                        <td class="text-end pe-4">
+                                            <button
+                                                th:onclick="abrirDetalle([[${pedido?.id}]], [[${pedido?.codigoSeguimiento}]], this)"
+                                                class="btn btn-sm btn-l3d-gold px-3">
+                                                <i class="fas fa-calculator me-1"></i> COTIZAR
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- Manejo de lista vacía para evitar confusión del operador -->
+                                    <tr th:if="${#lists.isEmpty(pedidos)}">
+                                        <td colspan="5" class="text-center text-muted py-4">No hay pedidos para cotizar.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: PANEL DE DETALLE PROFUNDO (Se activa vía JavaScript) -->
+                <div id="seccion-detalle" class="d-none animate-fade">
+
+                    <div class="d-flex justify-content-between align-items-center mb-4 pt-3">
+                        <button onclick="volverAlListado()"
+                            class="btn btn-link text-white text-decoration-none p-0 fw-bold" style="font-size: 1.1rem;">
+                            <i class="fas fa-arrow-left me-2 text-gold"></i> Volver a Cotizaciones
+                        </button>
+                        <span class="badge bg-warning text-black px-4 py-2 fw-800" style="font-size: 0.85rem;"
+                            id="badge-estado">EN EVALUACION</span>
+                    </div>
+
+                    <div class="mb-4">
+                        <h2 class="fw-bold m-0 text-white-bright">Panel de Cotización y Presupuesto</h2>
+                        <span id="detalle-tracking" class="font-monospace text-gold">ID: LEG-XXXX</span>
+                    </div>
+
+                    <div class="row g-4 mb-5">
+                        <div class="col-lg-8">
+
+                            <!-- BLOQUE: CONTACTO (Integridad de datos cliente-pedido) -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2">
+                                    <i class="fas fa-user-circle me-2"></i> DATOS DE CONTACTO
+                                </h6>
+                                <div class="row mb-4">
+                                    <div class="col-md-6"><span class="label-tech-bright">TELÉFONO DE CONTACTO *</span>
+                                        <p class="h5 fw-bold text-white-bright mt-1" id="cot-telefono">---</p>
+                                    </div>
+                                    <div class="col-md-6"><span class="label-tech-bright">RUT DEL CLIENTE / FACTURACIÓN
+                                            *</span>
+                                        <p class="h5 fw-bold text-white-bright mt-1" id="cot-rut">---</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE: REQUERIMIENTOS (Análisis del formulario técnico del cliente) -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2">
+                                    <i class="fas fa-box-open me-2"></i> SOBRE LA PIEZA
+                                </h6>
+                                <div class="row mb-4">
+                                    <div class="col-md-4"><span class="label-tech-bright">¿TIENE PIEZA FÍSICA? *</span>
+                                        <p class="h6 text-white-bright mt-1" id="cot-piezaFisica">---</p>
+                                    </div>
+                                    <div class="col-md-8"><span class="label-tech-bright">¿QUÉ DESEAS HACER CON TU PIEZA
+                                            FÍSICA? *</span>
+                                        <p class="text-white-bright mt-1 small" id="cot-necesidad">---</p>
+                                    </div>
+                                </div>
+                                <div class="row mb-4">
+                                    <div class="col-md-6"><span class="label-tech-bright">TOLERANCIA / ENCAJE (¿DEBE
+                                            CALZAR?) *</span>
+                                        <p class="text-white-bright small" id="cot-tolerancia">---</p>
+                                    </div>
+                                    <div class="col-md-6"><span class="label-tech-bright">¿LAS PIEZAS A IMPRIMIR SON
+                                            COPIAS EXACTAS? *</span>
+                                        <p class="text-white-bright small" id="cot-copia">---</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE: DIMENSIONES (Cálculo volumétrico de la pieza) -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2">
+                                    <i class="fas fa-ruler-combined me-2"></i> MEDIDAS Y CANTIDAD
+                                </h6>
+                                <div class="row g-2 mb-4">
+                                    <div class="col-md-3">
+                                        <div class="measure-box-tech"><span class="label-tech-bright">ANCHO (mm)</span>
+                                            <p class="h5 mb-0 font-monospace text-white-bright" id="cot-medidaX">--</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="measure-box-tech"><span class="label-tech-bright">ALTO (mm)</span>
+                                            <p class="h5 mb-0 font-monospace text-white-bright" id="cot-medidaY">--</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="measure-box-tech"><span class="label-tech-bright">PROFUNDIDAD
+                                                (mm)</span>
+                                            <p class="h5 mb-0 font-monospace text-white-bright" id="cot-medidaZ">--</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="measure-box-tech border-warning"><span
+                                                class="label-tech-bright text-warning">UNIDADES *</span>
+                                            <p class="h5 mb-0 fw-bold text-white-bright" id="cot-unidades">--</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    class="bg-black p-3 rounded border border-secondary d-flex justify-content-between align-items-center">
+                                    <div><span class="label-tech-bright mb-1">ARCHIVO 3D (.STL, .OBJ, .ZIP) O
+                                            LINK</span></div>
+                                    <!-- Contenedor Inteligente para la botonera de archivos (3 Orígenes) -->
+                                    <div id="contenedor-boton-descarga" class="mt-3 d-flex flex-wrap gap-2">
+
+                                        <!-- Botón 1: Origen A (Lead de WordPress) -->
+                                        <a th:if="${pedido?.linkArchivoInicial != null and !pedido.linkArchivoInicial.isEmpty()}"
+                                            th:href="@{'/api/v1/pedidos/' + ${pedido.id} + '/descargar'}"
+                                            target="_blank" class="btn btn-outline-warning btn-sm fw-bold flex-grow-1">
+                                            <i class="fas fa-cloud-download-alt me-1"></i> ARCHIVO INICIAL (WP)
+                                        </a>
+
+                                        <!-- Botón 2: Origen B (Archivo físico subido a Drive vía Formulario Técnico) -->
+                                        <a th:if="${pedido?.detallesTecnicos?.driveFileId != null and !pedido.detallesTecnicos.driveFileId.isEmpty()}"
+                                            th:href="@{'/api/v1/pedidos/visor/comprobante?url=' + ${pedido.detallesTecnicos.linkArchivoFinal}}"
+                                            target="_blank" class="btn btn-l3d-gold btn-sm fw-bold flex-grow-1">
+                                            <i class="fas fa-file-archive me-1"></i> ARCHIVO ADJUNTO (DRIVE)
+                                        </a>
+
+                                        <!-- Botón 3: Origen C (Enlace Externo pegado por el cliente, resolución de conflicto) -->
+                                        <a th:if="${pedido?.detallesTecnicos?.linkArchivoFinal != null and !pedido.detallesTecnicos.linkArchivoFinal.isEmpty() and (pedido?.detallesTecnicos?.driveFileId == null or pedido.detallesTecnicos.driveFileId.isEmpty())}"
+                                            th:href="${pedido.detallesTecnicos.linkArchivoFinal}" target="_blank"
+                                            class="btn btn-outline-info btn-sm fw-bold flex-grow-1">
+                                            <i class="fas fa-external-link-alt me-1"></i> ENLACE EXTERNO
+                                        </a>
+
+                                        <!-- Mensaje de Vacío (Fallback): Se muestra solo si los tres campos están vacíos -->
+                                        <div th:if="${(pedido?.linkArchivoInicial == null or pedido.linkArchivoInicial.isEmpty()) and 
+                                                  (pedido?.detallesTecnicos?.driveFileId == null or pedido.detallesTecnicos.driveFileId.isEmpty()) and 
+                                                  (pedido?.detallesTecnicos?.linkArchivoFinal == null or pedido.detallesTecnicos.linkArchivoFinal.isEmpty())}"
+                                            class="w-100 text-center mt-2">
+                                            <span class="text-muted small"><i
+                                                    class="fas fa-exclamation-circle me-1"></i> No se adjuntaron
+                                                archivos ni enlaces.</span>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE: ESPECIFICACIONES TÉCNICAS (Sugerencias del sistema) -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                        class="fas fa-cogs me-2"></i> ESPECIFICACIONES TÉCNICAS Y PRESUPUESTO</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-4"><label class="label-tech-bright">ENTORNO DE USO *</label>
+                                        <p class="text-white-bright" id="cot-entorno">---</p>
+                                    </div>
+                                    <div class="col-md-4"><label class="label-tech-bright">MATERIAL SUGERIDO /
+                                            SOLICITADO *</label>
+                                        <p class="text-white-bright" id="cot-material">---</p>
+                                    </div>
+                                    <div class="col-md-4"><label class="label-tech-bright">COLOR SOLICITADO *</label>
+                                        <p class="text-white-bright" id="cot-color">---</p>
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded"
+                                            style="background: rgba(242,192,95,0.05); border: 1px solid #222;">
+                                            <label class="label-tech-bright text-warning">PRESUPUESTO ESTIMADO *</label>
+                                            <p class="fw-bold mb-0 text-white-bright" id="cot-presupuesto">---</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="p-3 rounded"
+                                            style="background: rgba(242,192,95,0.05); border: 1px solid #222;">
+                                            <label class="label-tech-bright text-warning">DÍAS DE ENTREGA SOLICITADOS
+                                                *</label>
+                                            <p class="fw-bold mb-0 text-white-bright" id="cot-dias">---</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE: LOGÍSTICA (Gestión de despacho) -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                        class="fas fa-truck me-2"></i> ENTREGA Y FACTURACIÓN</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6"><span class="label-tech-bright">MÉTODO DE ENTREGA *</span>
+                                        <p class="text-white-bright" id="cot-metodoEntrega">---</p>
+                                    </div>
+                                    <div class="col-md-6"><span class="label-tech-bright">TIPO DE ENVÍO STARKEN</span>
+                                        <p class="text-white-bright" id="cot-tipoEnvio">---</p>
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded bg-black border border-secondary">
+                                    <span class="label-tech-bright">DIRECCIÓN (REGIÓN, COMUNA, CALLE)</span>
+                                    <p class="mb-0 text-white-bright" id="cot-direccion">---</p>
+                                </div>
+                            </div>
+
+                            <!-- BLOQUE: OBSERVACIONES -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-gold fw-bold mb-3"><i class="fas fa-info-circle me-2"></i> INFORMACIÓN
+                                    ADICIONAL (OPCIONAL)</h6>
+                                <div class="info-adicional-box text-white-bright" id="cot-informacionAdicional">Sin
+                                    observaciones adicionales</div>
+                            </div>
+
+                            <!-- BLOQUE FINAL: CIERRE COMERCIAL (Input de gestión administrativa) -->
+                            <div class="section-container shadow-lg border-gold mb-4">
+                                <h6 class="text-gold fw-bold mb-4 border-bottom border-secondary pb-2"><i
+                                        class="fas fa-hand-holding-usd me-2"></i> FIJAR PRECIO FINAL Y PROMESA DE
+                                    ENTREGA</h6>
+                                <!-- Sistema de Bloqueo de Seguridad (Anti-error accidental) -->
+                                <div class="form-check form-switch mb-4 d-flex align-items-center">
+                                    <input class="form-check-input me-3" type="checkbox" id="lockSwitch"
+                                        onchange="toggleLockPrices()">
+                                    <label class="form-check-label text-warning fw-bold mt-1" for="lockSwitch">BLOQUEAR
+                                        CAMPOS (Seguridad contra modificaciones accidentales)</label>
+                                </div>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4">
+                                        <label class="label-tech-bright">VALOR BASE / ORIGINAL ($)</label>
+                                        <input type="number" id="inputPrecioOriginal"
+                                            class="form-control l3d-input py-2 h5" placeholder="Ej: 100000"
+                                            onkeyup="calcularEspejo()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="label-tech-bright">% DESCUENTO COMERCIAL</label>
+                                        <input type="number" id="inputDescuento" class="form-control l3d-input py-2 h5"
+                                            placeholder="0" value="0" onkeyup="calcularEspejo()">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="label-tech-bright">VALOR NETO FINAL ($) *</label>
+                                        <input type="number" id="inputPrecioFinal"
+                                            class="form-control l3d-input py-2 h5 fw-bold border-info"
+                                            placeholder="Neto" readonly>
+                                    </div>
+                                </div>
+
+                                <!-- ESPEJO DE CÁLCULO PARA LUIS -->
+                                <div class="p-3 rounded mb-4"
+                                    style="background: rgba(0, 255, 255, 0.05); border: 1px dashed #00FFFF;">
+                                    <div class="row text-center">
+                                        <div class="col-md-4">
+                                            <small class="label-tech-bright" style="color: #00FFFF;">NETO LUIS</small>
+                                            <p class="h5 mb-0 fw-bold" id="espejo-neto">$0</p>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="label-tech-bright" style="color: #00FFFF;">+ IVA (19%)</small>
+                                            <p class="h5 mb-0 fw-bold" id="espejo-iva">$0</p>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="label-tech-bright" style="color: #F2C05F;">TOTAL CLIENTE
+                                                (BRUTO)</small>
+                                            <p class="h4 mb-0 fw-bold text-gold" id="espejo-total">$0</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-12">
+                                        <label class="label-tech-bright">FECHA DE ENTREGA ESTIMADA *</label>
+                                        <input type="date" id="inputFechaEntrega" class="form-control l3d-input py-3">
+                                        <small class="text-white">Día en el que prometes tener la pieza
+                                            terminada.</small>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="label-tech-bright">DESGLOSE DE COSTOS (USO INTERNO / OPCIONAL)</label>
+                                    <textarea id="inputDesglose" class="form-control l3d-input" rows="2"
+                                        placeholder="Ej: 400g de resina = $12.000, 15 horas de máquina = $30.000..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PANEL LATERAL DE ACCIÓN Y CIERRE -->
+                        <div class="col-lg-4">
+                            <!-- ACCIÓN: Aprobación / Rechazo -->
+                            <div class="section-container shadow-lg mb-4"
+                                style="border-top: 3px solid var(--l3d-gold);">
+                                <h6 class="text-gold fw-bold mb-3"><i class="fas fa-sync-alt me-2 text-white"></i>
+                                    Aprobar Presupuesto</h6>
+                                <p class="text-white fw-bold mb-3" style="font-size: 1rem; line-height: 1.4;">Al
+                                    guardar, el estado cambiará a la etapa seleccionada y se enviará el cobro al
+                                    cliente.</p>
+                                <select id="nuevoEstadoCotizacion" class="form-select l3d-input mb-3 py-2 fw-bold">
+                                    <option value="PRESUPUESTADO">ENVIAR COTIZACIÓN AL CLIENTE</option>
+                                    <option value="RECHAZADA">RECHAZAR PROYECTO</option>
+                                </select>
+                                <button onclick="guardarCotizacionYEstado(this)"
+                                    class="btn btn-l3d-gold w-100 py-3 fw-bold"><i class="fas fa-save me-2"></i> Guardar
+                                    y Cambiar Estado</button>
+                            </div>
+
+                            <!-- HISTORIAL DE PASOS -->
+                            <div class="section-container shadow-lg mb-4">
+                                <h6 class="text-white-bright fw-bold mb-4 small text-uppercase">BITÁCORA DEL PEDIDO</h6>
+                                <div class="bitacora-item border-0 pb-0">
+                                    <div class="d-flex justify-content-between"><span class="fw-bold small text-warning"
+                                            id="bitacora-estado">ESTADO ACTUAL</span></div>
+                                    <p class="text-white-50 small mb-0 mt-1">Esperando acción comercial.</p>
+                                </div>
+                            </div>
+
+                            <!-- ADJUNTOS DE COTIZACIÓN (Visual Feedback para el cliente) -->
+                            <div class="card bg-dark border-secondary p-3 mb-3">
+                                <h6 class="text-gold fw-bold mb-2"><i class="fas fa-camera"></i> Explicación y Foto
+                                    (Opcional)</h6>
+                                <p class="text-muted small mb-2">Lo que adjuntes aquí se enviará automáticamente con la
+                                    cotización.</p>
+
+                                <input type="file" id="archivoCotizacion"
+                                    class="form-control form-control-sm mb-2 text-white bg-black border-secondary"
+                                    accept="image/*,.pdf">
+
+                                <textarea id="mensajeCotizacion"
+                                    class="form-control text-white bg-black border-secondary" rows="3"
+                                    placeholder="Ej: Tuvimos que rediseñar la pieza..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+        /**
+         * VARIABLE GLOBAL: pedidoCotizacionActual
+         * Actúa como el identificador de sesión en el cliente para el pedido que se está 
+         * gestionando en la vista de detalle. Permite que las funciones de guardado 
+         * apunten al registro correcto en la base de datos MySQL.
+         */
+        let pedidoCotizacionActual = null;
+
+        /**
+         * FUNCIÓN: abrirDetalle
+         * Realiza la transición lógica entre el listado global y el panel de edición técnica.
+         * Utiliza async/await para manejar la asincronía de la red sin bloquear la interfaz.
+         */
+        async function abrirDetalle(id, tracking, btn) {
+            if (!id) return;
+            pedidoCotizacionActual = id;
+            const textoOriginal = btn.innerHTML;
+
+            // Feedback visual: Spinner de carga para indicar proceso activo al operador.
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                // (aqui modificar al desplegar a produccion: asegurar que el endpoint de carga de pedido sea el definitivo) 
+                // Llamada a la API para obtener los datos completos del pedido, incluyendo detalles técnicos y estado actual.  
+                // Se maneja la respuesta con validación de estado HTTP para garantizar la integridad de los datos antes de procesarlos.    
+                const response = await fetch(`/api/v1/pedidos/${id}`);
+                if (!response.ok) throw new Error("Error en respuesta");
+                const pedido = await response.json();
+                const dt = pedido.detallesTecnicos || {};
+                
+                // Extraemos información del cliente para usarla en el Gestor de Archivos (WhatsApp)
+                const cli = pedido.cliente || { nombre: 'Cliente', telefono: '' };
+
+                // Sincronización de identificadores y estados en el DOM
+                document.getElementById('detalle-tracking').innerText = "ID: " + tracking;
+                document.getElementById('badge-estado').innerText = pedido.estadoActual;
+                document.getElementById('bitacora-estado').innerText = pedido.estadoActual;
+
+                /**
+                 * MAPEO ESPEJO:
+                 * Se realiza una transferencia directa de los datos técnicos del objeto JSON 
+                 * a los elementos de la interfaz, utilizando lógica de respaldo (OR) para 
+                 * manejar campos que el cliente haya dejado vacíos.
+                 */
+                document.getElementById('cot-telefono').innerText = (pedido.cliente && pedido.cliente.telefono) ? pedido.cliente.telefono : (dt.telefonoContacto || '---');
+                document.getElementById('cot-rut').innerText = dt.rut || (pedido.cliente ? pedido.cliente.rut : '---');
+
+                document.getElementById('cot-piezaFisica').innerText = dt.tienePiezaFisica ? 'Sí' : 'No';
+                document.getElementById('cot-necesidad').innerText = dt.necesitaModificacion || '---';
+                document.getElementById('cot-tolerancia').innerText = dt.toleranciaCheck ? 'Sí, debe calzar' : 'No es necesario';
+                document.getElementById('cot-copia').innerText = dt.esCopiaExacta ? 'Sí, son copias idénticas' : 'No, son piezas diferentes';
+
+                document.getElementById('cot-medidaX').innerText = dt.medidaAncho ? dt.medidaAncho : '---';
+                document.getElementById('cot-medidaY').innerText = dt.medidaAlto ? dt.medidaAlto : '---';
+                document.getElementById('cot-medidaZ').innerText = dt.medidaProfundidad ? dt.medidaProfundidad : '---';
+                document.getElementById('cot-unidades').innerText = dt.cantidadUnidades || '1';
+
+                document.getElementById('cot-entorno').innerText = dt.entornoUso || '---';
+                document.getElementById('cot-material').innerText = dt.materialSolicitado || '---';
+                document.getElementById('cot-color').innerText = dt.colorSolicitado || '---';
+
+                document.getElementById('cot-presupuesto').innerText = dt.presupuestoEstimado || '---';
+                document.getElementById('cot-dias').innerText = dt.diasEntrega || '---';
+
+                document.getElementById('cot-metodoEntrega').innerText = dt.metodoEntrega || '---';
+                document.getElementById('cot-tipoEnvio').innerText = dt.tipoEnvioStarken || 'N/A';
+
+                // Lógica de composición de dirección para logística
+                let dir = [];
+                if (dt.calleYNumero) dir.push(dt.calleYNumero);
+                if (dt.deptoCasaOficina) dir.push(dt.deptoCasaOficina);
+                if (dt.comuna) dir.push(dt.comuna);
+                if (dt.region) dir.push(dt.region);
+                document.getElementById('cot-direccion').innerText = dir.length > 0 ? dir.join(', ') : 'No especificada / No requiere';
+
+                document.getElementById('cot-informacionAdicional').innerText = dt.informacionAdicional || 'Sin observaciones adicionales';
+
+                // Lógica Camaleón Estandarizada Legión (Gestión Comercial)
+                const contenedorBoton = document.getElementById('contenedor-boton-descarga');
+                if (contenedorBoton) {
+                    let htmlBoton = "";
+                    
+                    const hasLinkInicial = pedido.linkArchivoInicial && pedido.linkArchivoInicial.trim() !== "" && pedido.linkArchivoInicial !== "." && pedido.linkArchivoInicial !== "...";
+                    const hasDriveId = dt.driveFileId && dt.driveFileId.trim() !== "" && dt.driveFileId !== "." && dt.driveFileId !== "...";
+
+                    // SPLIT MATEMÁTICO: Corte exacto para evitar conflictos con caracteres especiales
+                    let linkFinalManual = "";
+                    let linkDriveProxy = dt.linkArchivoFinal || "";
+                    let hasLinkFinal = false;
+
+                    if (dt.linkArchivoFinal && dt.linkArchivoFinal.trim() !== "") {
+                        const pipeIndex = dt.linkArchivoFinal.indexOf("|");
+                        if (pipeIndex !== -1) {
+                            linkFinalManual = dt.linkArchivoFinal.substring(0, pipeIndex).trim();
+                            linkDriveProxy = dt.linkArchivoFinal.substring(pipeIndex + 1).trim();
+                            hasLinkFinal = linkFinalManual !== "";
+                        } else if (!hasDriveId) {
+                            linkFinalManual = dt.linkArchivoFinal;
+                            hasLinkFinal = true;
+                        }
+                    }
+
+                    // BOTONERA CON DOBLE ACCIÓN: cada botón envía su origen exacto
+                    // WordPress = wps | Drive técnico = tec | Enlace externo = links
+                    
+                    // 1. Origen A (WordPress) -> prefijo wps
+                    if (hasLinkInicial) {
+                        htmlBoton += `
+                            <button 
+                                type="button" 
+                                onclick='gestionarRecursoL3D(
+                                    ${JSON.stringify(pedido.id)}, 
+                                    ${JSON.stringify(tracking)}, 
+                                    ${JSON.stringify(pedido.linkArchivoInicial)}, 
+                                    ${JSON.stringify(cli.nombre || "Cliente")}, 
+                                    ${JSON.stringify(cli.telefono || "")}, 
+                                    "wps"
+                                )' 
+                                class="btn btn-outline-warning btn-sm fw-bold flex-grow-1">
+                                <i class="fas fa-cloud-download-alt me-1"></i> ARCHIVO INICIAL (WP)
+                            </button>
+                        `;
+                    }
+
+                    // 2. Origen B (Drive técnico) -> prefijo tec
+                    if (hasDriveId) {
+                        htmlBoton += `
+                            <button 
+                                type="button" 
+                                onclick='gestionarRecursoL3D(
+                                    ${JSON.stringify(pedido.id)}, 
+                                    ${JSON.stringify(tracking)}, 
+                                    ${JSON.stringify(linkDriveProxy)}, 
+                                    ${JSON.stringify(cli.nombre || "Cliente")}, 
+                                    ${JSON.stringify(cli.telefono || "")}, 
+                                    "tec"
+                                )' 
+                                class="btn btn-l3d-gold btn-sm fw-bold flex-grow-1">
+                                <i class="fas fa-file-archive me-1"></i> ARCHIVO ADJUNTO (DRIVE)
+                            </button>
+                        `;
+                    }
+
+                    // 3. Origen C (Enlace externo manual) -> prefijo links
+                    if (hasLinkFinal) {
+                        htmlBoton += `
+                            <button 
+                                type="button" 
+                                onclick='gestionarRecursoL3D(
+                                    ${JSON.stringify(pedido.id)}, 
+                                    ${JSON.stringify(tracking)}, 
+                                    ${JSON.stringify(linkFinalManual)}, 
+                                    ${JSON.stringify(cli.nombre || "Cliente")}, 
+                                    ${JSON.stringify(cli.telefono || "")}, 
+                                    "links"
+                                )' 
+                                class="btn btn-outline-info btn-sm fw-bold flex-grow-1">
+                                <i class="fas fa-external-link-alt me-1"></i> ENLACE EXTERNO
+                            </button>
+                        `;
+                    }
+
+                    // 4. Escenario Vacío
+                    if (!hasLinkInicial && !hasDriveId && !hasLinkFinal) {
+                        htmlBoton = `
+                            <div class="w-100 text-center mt-2">
+                                <span class="text-muted small"><i class="fas fa-exclamation-circle me-1"></i> No se adjuntaron archivos ni enlaces.</span>
+                            </div>
+                        `;
+                    }
+
+                    contenedorBoton.innerHTML = htmlBoton;
+                }
+
+                // Carga del precio actual y reset del sistema de seguridad (bloqueo)
+                document.getElementById('inputPrecioOriginal').value = pedido.precioFinal || "";
+                document.getElementById('inputDescuento').value = pedido.descuentoPorcentaje || 0;
+                document.getElementById('inputPrecioFinal').value = pedido.precioFinal || "";
+
+                // Disparamos el cálculo inicial para el espejo
+                calcularEspejo();
+
+                document.getElementById('lockSwitch').checked = false;
+                toggleLockPrices();
+
+                // Cambio de vista mediante manipulación de clases de Bootstrap
+                document.getElementById('seccion-listado').classList.add('d-none');
+                document.getElementById('seccion-detalle').classList.remove('d-none');
+                window.scrollTo(0, 0);
+
+            } catch (e) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Comunicación',
+                    text: 'El servidor no devolvió los datos correctamente. Intente refrescar la página.',
+                    confirmButtonColor: '#d33',
+                    background: '#000',
+                    color: '#fff'
+                });
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        // FUNCIÓN: Control de navegación de regreso al tablero principal.
+        function volverAlListado() {
+            document.getElementById('seccion-detalle').classList.add('d-none');
+            document.getElementById('seccion-listado').classList.remove('d-none');
+        }
+
+        /**
+         * FUNCIÓN: calcularEspejo
+         * Realiza el cálculo en tiempo real de Neto, IVA y Total para Luis, protegiendo su caja.
+         */
+        function calcularEspejo() {
+            // 1. Lo que Luis digita es su NETO REAL E INTOCABLE
+            const netoLuis = parseFloat(document.getElementById('inputPrecioOriginal').value) || 0;
+
+            // 2. El Neto Final siempre es igual a lo que Luis quiere ganar
+            const neto = netoLuis;
+            const iva = Math.round(neto * 0.19);
+            const total = neto + iva;
+
+            // Se asigna al input oculto para enviarlo como precioFinal a la Base de Datos
+            document.getElementById('inputPrecioFinal').value = neto;
+
+            // 3. Renderizado visual para Luis (Sin descuentos falsos, la pura realidad contable)
+            const formatter = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+
+            document.getElementById('espejo-neto').innerText = formatter.format(neto);
+            document.getElementById('espejo-iva').innerText = formatter.format(iva);
+            document.getElementById('espejo-total').innerText = formatter.format(total);
+        }
+
+        /**
+         * FUNCIÓN: toggleLockPrices
+         * Implementa una capa de seguridad en la experiencia de usuario (UX).
+         * Bloquea los campos críticos (precio, fecha, desglose) para evitar 
+         * ediciones accidentales mientras se revisa la información técnica.
+         */
+        function toggleLockPrices() {
+            const isLocked = document.getElementById('lockSwitch').checked;
+            const ids = ['inputPrecioOriginal', 'inputDescuento', 'inputPrecioFinal', 'inputFechaEntrega', 'inputDesglose'];
+            ids.forEach(id => {
+                const element = document.getElementById(id);
+                if(element) {
+                    element.disabled = isLocked;
+                    element.style.backgroundColor = isLocked ? "#1a1a1a" : "";
+                }
+            });
+        }
+
+        /**
+         * FUNCIÓN: formatearFechaParaJava
+         * Convierte el formato de fecha estándar de HTML (yyyy-mm-dd) al formato 
+         * de cadena esperado por la lógica de negocio en el backend.
+         */
+        function formatearFechaParaJava(fechaHTML) {
+            if (!fechaHTML) return null;
+            const partes = fechaHTML.split('-');
+            return `${partes[2]}-${partes[1]}-${partes[0]}`;
+        }
+
+        /**
+         * -------------------------------------------
+         * FUNCIÓN PRINCIPAL: guardarCotizacionYEstado (Núcleo de Negocio)
+         * ------------------------------------------------------
+         * Unifica la lógica de actualización de precios, cambio de estado y 
+         * envío de notificaciones por correo electrónico al cliente.
+         */
+        async function guardarCotizacionYEstado(btn) {
+            if (!pedidoCotizacionActual) return;
+
+            // Recolección de parámetros de entrada
+            const descuentoPorcentaje = parseFloat(document.getElementById('inputDescuento').value) || 0;
+            const precioFinal = parseFloat(document.getElementById('inputPrecioFinal').value) || 0;
+            const fechaCruda = document.getElementById('inputFechaEntrega').value;
+            const anotacionesInternas = document.getElementById('inputDesglose') ? document.getElementById('inputDesglose').value : "";
+            const estado = document.getElementById('nuevoEstadoCotizacion').value;
+
+            // Selectores para el envío de información adicional (Mensajes y fotos)
+            const textareaMensaje = document.getElementById('mensajeCotizacion');
+            const mensajeAdicional = textareaMensaje ? textareaMensaje.value : "";
+            const inputArchivo = document.getElementById('archivoCotizacion');
+
+            /**
+             * VALIDACIÓN FINANCIERA:
+             * Se asegura que el presupuesto sea un valor positivo y real.
+             */
+            if (estado === "PRESUPUESTADO") {
+                if (!precioFinal || isNaN(precioFinal) || precioFinal <= 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Falta Precio',
+                        text: 'Por favor, ingresa un precio válido antes de enviar la cotización.',
+                        confirmButtonColor: '#F2C05F',
+                        background: '#000',
+                        color: '#fff'
+                    });
+                    return;
+                }
+            }
+
+            /**
+             * VALIDACIÓN TÉCNICA DE ADJUNTOS:
+             * Protege el servidor y el sistema de correos limitando el tamaño 
+             * de los archivos a 20 megabytes.
+             */
+            if (estado === "PRESUPUESTADO" && inputArchivo && inputArchivo.files.length > 0) {
+                const tamañoEnMB = inputArchivo.files[0].size / (1024 * 1024);
+                if (tamañoEnMB > 20) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Archivo Excede Límite',
+                        text: `El archivo pesa ${tamañoEnMB.toFixed(1)} MB. El límite máximo es 20 MB. Reduce el peso de la imagen o documento.`,
+                        confirmButtonColor: '#F2C05F',
+                        background: '#000',
+                        color: '#fff'
+                    });
+                    return;
+                }
+            }
+
+            // Feedback visual de proceso activo
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> ENVIANDO...';
+            btn.disabled = true;
+
+            try {
+                let url = '';
+                let configuracionFetch = {};
+
+                if (estado === "PRESUPUESTADO") {
+                    url = `/api/v1/pedidos/${pedidoCotizacionActual}/presupuesto`;
+
+                    // 🪄 MAGIA DE MARKETING AQUÍ:
+                    // Calculamos matemáticamente el precio "Falso" hacia atrás para engañar al sistema
+                    // y lograr el efecto visual del ofertón sin tocar tu neto.
+                    let precioOriginalFalso = precioFinal;
+                    if (descuentoPorcentaje > 0 && descuentoPorcentaje < 100) {
+                        precioOriginalFalso = Math.round(precioFinal / (1 - (descuentoPorcentaje / 100)));
+                    }
+
+                    const formData = new FormData();
+                    formData.append("precioOriginal", precioOriginalFalso); 
+                    formData.append("descuentoPorcentaje", descuentoPorcentaje); 
+                    formData.append("precioFinal", precioFinal); 
+                    formData.append("anotacionesInternas", anotacionesInternas);
+                    formData.append("fechaEntregaEstimada", formatearFechaParaJava(fechaCruda));
+
+                    if (mensajeAdicional.trim() !== "") {
+                        formData.append("mensajeAdicional", mensajeAdicional);
+                    }
+                    if (inputArchivo && inputArchivo.files.length > 0) {
+                        formData.append("archivoAdjunto", inputArchivo.files[0]);
+                    }
+
+                    configuracionFetch = { method: 'POST', body: formData };
+                } else {
+                    // FLUJO DE RECHAZO: Finalización del ciclo de vida del pedido.
+                    url = `/api/v1/pedidos/${pedidoCotizacionActual}/estado`;
+                    configuracionFetch = {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nuevoEstado: estado,
+                            mensajeTriage: "Proyecto rechazado o requiere cambios en etapa de cotización."
+                        })
+                    };
+                }
+
+                const response = await fetch(url, configuracionFetch);
+
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Cotización Enviada!',
+                        text: 'El sistema ha procesado la solicitud y el correo está en camino al cliente.',
+                        confirmButtonColor: '#10b981',
+                        background: '#000',
+                        color: '#fff'
+                    }).then(() => location.reload());
+                } else {
+                    const error = await response.text();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operación Rechazada',
+                        html: `El servidor rechazó la petición.<br><br><span class="text-warning small">Detalle: ${error}</span>`,
+                        confirmButtonColor: '#d33',
+                        background: '#000',
+                        color: '#fff'
+                    });
+                }
+            } catch (error) {
+                console.error("Error en la petición:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Fallo de Red',
+                    text: 'Error de red o conexión perdida con el servidor.',
+                    confirmButtonColor: '#d33',
+                    background: '#000',
+                    color: '#fff'
+                });
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        /**
+         * FUNCIÓN: filtrarTabla
+         * Motor de búsqueda en caliente para la bandeja de entrada. 
+         * Compara el texto ingresado con el contenido de las filas de la tabla 
+         * y oculta aquellas que no coinciden (Filtrado por cliente o ID).
+         */
+        function filtrarTabla(inputId, tablaId) {
+            let filter = document.getElementById(inputId).value.toUpperCase();
+            let trs = document.getElementById(tablaId).getElementsByTagName("tr");
+            for (let i = 1; i < trs.length; i++) {
+                let txt = trs[i].textContent || trs[i].innerText;
+                trs[i].style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            }
+        }
+
+
+        // ========================================================================
+        // PROTOCOLO DUAL DE ARCHIVOS (DESCARGA + DRIVE/DROPBOX/LINK CON PREFIJO)
+        // ========================================================================
+
+        /**
+         * FUNCIÓN: gestionarRecursoL3D
+         *
+         * Esta función se ejecuta cuando Luis presiona uno de los botones de archivo:
+         *
+         * - ARCHIVO INICIAL (WP)      -> origen = "wps"
+         * - ARCHIVO ADJUNTO (DRIVE)  -> origen = "tec"
+         * - ENLACE EXTERNO           -> origen = "links"
+         *
+         * Objetivo:
+         * 1. Abrir el link original para que Luis lo pueda mirar.
+         * 2. Pedir al backend que descargue ese MISMO link.
+         * 3. Forzar el nombre de descarga con esta estructura:
+         *
+         *    LEG-XXXX-wps-nombre_original.ext
+         *    LEG-XXXX-tec-nombre_original.ext
+         *    LEG-XXXX-links-nombre_original.ext
+         *
+         * Importante:
+         * El backend es el que realmente baja el archivo.
+         * El frontend solo le dice qué link y qué origen usar.
+         */
+        function gestionarRecursoL3D(id, tracking, urlDrive, nombreCliente, telefono, origen) {
+            Swal.fire({
+                title: 'Protocolo de Archivos',
+                html: `
+                    <div class="text-start small">
+                        <p>Doble acción iniciada para el pedido: <b class="text-gold">${tracking}</b></p>
+
+                        <ul class="text-white-50">
+                            <li>Se abrirá el enlace original para revisión visual (online).</li>
+                            <li>Se realizará una descarga de respaldo a tu PC.</li>
+                            <li> Se programó Para que Este archivo Se borre automáticamente en 90 días del PC.</b></li></b>
+                              <li> Se programó Para que Este archivo Se borre automáticamente en 60 días de Google Drive.</li>
+                            <li>El archivo descargado llevará el prefijo <b>${origen}</b>.</li>
+                            
+                        </ul>
+
+                        <p class="text-info mt-2">
+                            <i class="fas fa-hdd me-1"></i>
+                            Guarda el archivo en la carpeta "Descargas"  De Windows como cualquier otro archivo.
+                        </p>
+                    </div>
+                `,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'PROCEDER',
+                cancelButtonText: 'CANCELAR',
+                confirmButtonColor: '#0ea5e9',
+                background: '#000',
+                color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+
+                    /*
+                     * 1. Abrimos el link original.
+                     * Esto sirve para que Luis pueda verlo directamente en Drive,
+                     * Dropbox, Mega u otra nube.
+                     */
+                    if (urlDrive && urlDrive.startsWith('http')) {
+                        window.open(urlDrive, '_blank');
+                    }
+
+                    /*
+                     * 2. Descargamos usando el link exacto del botón presionado.
+                     *
+                     * Aquí está la corrección clave:
+                     * antes se descargaba solo por pedidoId,
+                     * ahora se manda también:
+                     *
+                     * - origen: wps / tec / links
+                     * - urlDrive: link exacto del botón
+                     */
+                    descargarArchivoFisico(id, tracking, nombreCliente, telefono, origen, urlDrive);
+                }
+            });
+        }
+
+        /**
+         * FUNCIÓN: descargarArchivoFisico
+         *
+         * Llama al endpoint:
+         *
+         * /api/v1/pedidos/{id}/descargar?origen=...&link=...
+         *
+         * El backend responde con:
+         *
+         * - archivo binario si pudo descargar.
+         * - JSON de error si el archivo está privado, eliminado o sin permiso.
+         *
+         * Esta función también fuerza la descarga en el navegador con el nombre
+         * que venga desde Content-Disposition.
+         */
+        async function descargarArchivoFisico(pedidoId, tracking, nombreCliente, telefono, origen, urlDrive) {
+            Swal.fire({
+                title: 'Descargando Respaldo...',
+                text: 'Validando permisos y aplicando prefijo...',
+                allowOutsideClick: false,
+                background: '#000',
+                color: '#fff',
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                /*
+                 * Construimos la URL hacia el proxy backend.
+                 *
+                 * origen:
+                 * - wps
+                 * - tec
+                 * - links
+                 *
+                 * link:
+                 * - link exacto que venía en el botón.
+                 */
+                const urlDescarga = `/api/v1/pedidos/${pedidoId}/descargar` +
+                    `?origen=${encodeURIComponent(origen || 'archivo')}` +
+                    `&link=${encodeURIComponent(urlDrive || '')}`;
+
+                const response = await fetch(urlDescarga);
+
+                /*
+                 * Si la descarga falla, no mostramos un error genérico.
+                 * Mandamos el control a manejarErrorDescargaNube(...)
+                 * para que detecte 401 / 403 / 404 / 400 y ofrezca WhatsApp.
+                 */
+                if (!response.ok) {
+                    await manejarErrorDescargaNube(response, tracking, nombreCliente, telefono, urlDrive);
+                    return;
+                }
+
+                /*
+                 * Si la descarga fue correcta, convertimos la respuesta en Blob.
+                 */
+                const blob = await response.blob();
+
+                /*
+                 * El backend debe mandar el nombre correcto aquí:
+                 *
+                 * Content-Disposition: attachment; filename="LEG-XXXX-tec-archivo.ext"
+                 */
+                const contentDisposition = response.headers.get('Content-Disposition');
+
+                /*
+                 * Nombre por defecto si el backend no manda filename.
+                 * Normalmente no debería usarse, pero queda como respaldo.
+                 */
+                let filename = `${tracking}-${origen}-archivo_adjunto`;
+
+                if (contentDisposition && contentDisposition.includes('filename=')) {
+                    let serverName = contentDisposition
+                        .split('filename=')[1]
+                        .replace(/["']/g, '')
+                        .trim();
+
+                    /*
+                     * Defensa contra duplicados:
+                     * Si el backend ya manda LEG-XXXX-origen-nombre.ext,
+                     * lo usamos tal cual.
+                     */
+                    if (serverName.startsWith(`${tracking}-${origen}-`)) {
+                        filename = serverName;
+                    } else {
+                        /*
+                         * Si por alguna razón viene solo el nombre original,
+                         * armamos el nombre final en frontend.
+                         */
+                        serverName = serverName.replace(/^[-_]+/, '');
+                        serverName = serverName.replace(/^(wps|tec|links|archivo)[-_]+/, '');
+
+                        if (serverName.startsWith(tracking)) {
+                            serverName = serverName.substring(tracking.length).replace(/^[-_]+/, '');
+                        }
+
+                        filename = `${tracking}-${origen}-${serverName}`;
+                    }
+                }
+
+                /*
+                 * Descarga virtual forzada.
+                 * El navegador descarga el archivo con el nombre calculado.
+                 */
+                const urlBlob = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+
+                a.style.display = 'none';
+                a.href = urlBlob;
+                a.download = filename;
+
+                document.body.appendChild(a);
+                a.click();
+
+                window.URL.revokeObjectURL(urlBlob);
+                document.body.removeChild(a);
+
+                Swal.close();
+
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Falla Técnica',
+                    html: `
+                        <div class="text-start small">
+                            <p>El sistema no pudo iniciar la descarga del archivo.</p>
+                            <p class="text-warning mb-0">
+                                Detalle técnico: ${error.message || 'Error desconocido'}
+                            </p>
+                        </div>
+                    `,
+                    confirmButtonColor: '#d33',
+                    background: '#000',
+                    color: '#fff'
+                });
+            }
+        }
+
+        /**
+         * FUNCIÓN: manejarErrorDescargaNube
+         *
+         * Se activa cuando el backend no pudo descargar el archivo.
+         *
+         * Casos típicos:
+         *
+         * 401 = requiere autorización
+         * 403 = archivo privado / sin permisos
+         * 404 = link roto, archivo eliminado o recurso no encontrado
+         * 400 = link mal formado o no compatible
+         *
+         * Si ocurre uno de esos errores, se muestra un modal con botón
+         * para contactar al cliente por WhatsApp.
+         */
+        async function manejarErrorDescargaNube(response, tracking, nombreCliente, telefono, urlDrive) {
+            let errorData = {};
+
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                errorData = {
+                    error: 'ERROR_DESCARGA',
+                    message: 'No se pudo leer el detalle del error.'
+                };
+            }
+
+            const status = response.status;
+
+            const esErrorDePermisos =
+                status === 401 ||
+                status === 403 ||
+                status === 404 ||
+                status === 400;
+
+            if (esErrorDePermisos) {
+                const telefonoLimpio = (telefono || '').replace(/\D/g, '');
+
+                const mensajeWhatsapp =
+                    `Hola ${nombreCliente || ''}, soy Luis de Legión 3D. ` +
+                    `Estoy intentando revisar el archivo de tu pedido ${tracking}, pero el enlace que enviaste no permite acceso o descarga. ` +
+                    `Por favor revisa estos pasos:\n\n` +
+                    `1. Abre tu archivo o carpeta en Drive / Dropbox / Mega.\n` +
+                    `2. Activa la opción de compartir.\n` +
+                    `3. Selecciona "Cualquier persona con el enlace puede ver".\n` +
+                    `4. Vuelve a enviarme el link actualizado.\n\n` +
+                    `Link actual recibido: ${urlDrive || 'No disponible'}`;
+
+                const waLink = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensajeWhatsapp)}`;
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Archivo sin acceso',
+                    html: `
+                        <div class="text-start small">
+                            <p>El archivo existe como enlace, pero el sistema no pudo descargarlo.</p>
+
+                            <p class="text-warning fw-bold mb-2">
+                                Posible causa: archivo privado, link vencido, permiso restringido o recurso eliminado.
+                            </p>
+
+                            <div class="p-2 rounded border border-secondary bg-dark">
+                                <b>Código HTTP:</b> ${status}<br>
+                                <b>Detalle:</b> ${errorData.message || errorData.error || 'Sin detalle'}
+                            </div>
+
+                            <p class="mt-3 mb-0">
+                                Puedes contactar al cliente por WhatsApp para pedirle que libere el acceso.
+                            </p>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonColor: '#25D366',
+                    cancelButtonColor: '#333',
+                    confirmButtonText: '<i class="fab fa-whatsapp me-1"></i> CONTACTAR CLIENTE',
+                    cancelButtonText: 'CERRAR',
+                    background: '#000',
+                    color: '#fff'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (telefonoLimpio.length >= 8) {
+                            window.open(waLink, '_blank');
+                        } else {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Teléfono no disponible',
+                                text: 'El cliente no tiene un teléfono válido registrado. Contacta por correo.',
+                                confirmButtonColor: '#F2C05F',
+                                background: '#000',
+                                color: '#fff'
+                            });
+                        }
+                    }
+                });
+
+                return;
+            }
+
+            /*
+             * Para cualquier otro error que no sea permiso/acceso,
+             * mostramos error técnico controlado.
+             */
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al descargar',
+                html: `
+                    <div class="text-start small">
+                        <p>No se pudo descargar el archivo.</p>
+                        <p><b>Código HTTP:</b> ${status}</p>
+                        <p><b>Detalle:</b> ${errorData.message || errorData.error || 'Sin detalle'}</p>
+                    </div>
+                `,
+                confirmButtonColor: '#d33',
+                background: '#000',
+                color: '#fff'
+            });
+        }
+
+        function notificarSinArchivo() {
+            Swal.fire({
+                icon: 'info',
+                title: 'Archivo no disponible',
+                text: 'El cliente no cargó un archivo técnico o enlace para este pedido.',
+                confirmButtonColor: '#F2C05F',
+                background: '#000',
+                color: '#fff'
+            });
+        }
+    </script>
+
+</body>
+
+</html>

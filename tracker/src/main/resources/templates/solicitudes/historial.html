@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Legión 3D - Bóveda de Historial</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/css/l3d-styles.css}">
+    <link rel="icon" type="image/x-icon" th:href="@{/img/logo.ico}">
+
+    <!--LEGIÓN 3D TRACKER : BÓVEDA DE HISTORIAL (AUDITORÍA Y KPIS)-------
+  Ubicación: src/main/resources/templates/solicitudes/historial.html
+
+  A nivel de modelo de negocio, este módulo actúa como el "Cerebro Analítico" 
+  del taller. No solo permite la consulta de pedidos antiguos, sino que 
+  proporciona métricas de rendimiento (KPIs) en tiempo real sobre el éxito 
+  operativo y la recaudación financiera bruta.
+
+  Nuestro equipo integró aquí el "Editor Maestro", una herramienta de 
+  superpoderes administrativos diseñada para que Luis pueda corregir 
+  cualquier error humano cometido en etapas anteriores (como errores en el 
+  RUT, email o medidas) sin tener que manipular directamente la base de datos.
+
+  Arquitectónicamente, se utiliza un diseño de tablas reactivas con filtrado 
+  en el lado del cliente (Frontend Filtering) para garantizar que la 
+  búsqueda sea instantánea incluso con cientos de registros cargados.
+-->
+
+
+    <style>
+        /* =========================================================
+   REDUCCIÓN  (90% ZOOM)
+   Al achicar la fuente raíz, todo el ecosistema de Bootstrap 
+   (botones, márgenes, textos) se encoge proporcionalmente.
+   ========================================================= */
+        html {
+            font-size: 90% !important;
+        }
+
+
+        /* Mejora la legibilidad de los totales recaudados y textos críticos 
+           sobre el fondo oscuro (High Contrast) */
+        .text-white-bright {
+            color: #ffffff !important;
+        }
+
+        /* Fondo corporativo atenuado: Proporciona profundidad a los 
+           encabezados de los modales sin distraer de los datos principales */
+        .bg-gold-soft {
+            background: rgba(242, 192, 95, 0.05);
+        }
+
+        /* Botón Maestro: Diseñado con una transición de 0.3 segundos para 
+           dar una sensación de suavidad. El borde dorado refuerza que es 
+           una acción de jerarquía administrativa */
+        .btn-edit-master {
+            color: #F2C05F;
+            border: 1px solid #F2C05F;
+            background: transparent;
+            transition: 0.3s;
+        }
+
+        /* Micro-interacción: Al pasar el cursor (hover), el botón se rellena 
+           completamente, indicando que el expediente está listo para ser editado */
+        .btn-edit-master:hover {
+            background: #F2C05F;
+            color: #000;
+        }
+
+        /* Contenedor Extra Largo: Ajustamos el ancho máximo a 1200px para 
+           poder desplegar las tres columnas de información (Contacto, Finanzas 
+           e Ingeniería) de forma paralela en pantallas de escritorio */
+        .modal-xl {
+            max-width: 1200px;
+        }
+
+        /* Títulos de Sección: Utilizan la variable de color oro corporativo 
+           y mayúsculas (text-transform) para establecer una jerarquía 
+           clara entre los diferentes grupos de datos del formulario */
+        .form-section-title {
+            color: var(--l3d-gold);
+            font-size: 0.8rem;
+            font-weight: 800;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        /* 
+           CONTROL DE UX (Experiencia de Usuario): 
+           Limitamos la altura del cuerpo del modal al 75% de la pantalla (75vh). 
+           Esto asegura que si el expediente tiene mucha información, el usuario 
+           pueda hacer scroll interno sin perder de vista el encabezado ni los 
+           botones de guardado del pie de página.
+        */
+        .modal-body {
+            max-height: 75vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+
+        .text-white {
+            --bs-text-opacity: 1;
+            color: #242b34 !important;
+        }
+
+        /* Aniquilar flechas de incremento en TODOS los inputs numéricos del sistema */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .swal2-container {
+            z-index: 999999 !important;
+            /* Capa infinita */
+        }
+    </style>
+</head>
+
+<body class="bg-black text-white">
+
+    <!---ESTRUCTURA DE DATOS: VISTA DE AUDITORÍA Y PANEL ANALÍTICO
+  ---------------------------------------------------------------
+  Este bloque representa la interfaz de alto nivel para la toma de decisiones. 
+  Como equipo, decidimos centralizar aquí los indicadores clave de rendimiento (KPIs), 
+  permitiendo a Luis visualizar la salud financiera y operativa del taller de 
+  forma instantánea.
+-->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Inyección de navegación estandarizada -->
+            <div th:replace="~{layout/sidebar :: sidebar}"></div>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div th:replace="~{layout/header-fijo :: header-l3d}"></div>
+
+                <!-- ======================================================= -->
+                <!-- ENCABEZADO ANALÍTICO Y EXPORTACIÓN                      -->
+                <!-- ======================================================= -->
+                <div class="d-flex justify-content-between align-items-center mb-4 pt-3">
+                    <div>
+                        <h2 class="text-white-bright fw-bold m-0">Bóveda de Historial</h2>
+                        <p class="text-white-50 small m-0">Control total y edición de expedientes cerrados o antiguos.
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <!-- Botón para desplegar la máquina del tiempo (Búsqueda por Año/Sub-Buscador) -->
+                        <button class="btn btn-outline-info" onclick="toggleSubBuscador()"
+                            title="Búsqueda Histórica Profunda en BD">
+                            <i class="bi bi-eye me-1"></i> PANEL HISTÓRICO
+                        </button>
+                        <!-- Funcionalidad de Reportería: Genera un archivo CSV compatible con Excel para contabilidad externa -->
+                        <button class="btn btn-l3d-gold" onclick="exportarExcel()"><i
+                                class="fas fa-file-export me-2"></i> EXPORTAR EXCEL</button>
+                    </div>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- SUB-BUSCADOR HISTÓRICO (LA MÁQUINA DEL TIEMPO)          -->
+                <!-- Este panel nace oculto (d-none). Permite a Luis buscar  -->
+                <!-- en la totalidad de la base de datos (años anteriores).  -->
+                <!-- ======================================================= -->
+                <div id="panelSubBuscador" class="section-container p-4 mb-4 d-none border border-info shadow-lg"
+                    style="background: rgba(13, 202, 240, 0.05);">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-info fw-bold m-0"><i class="fas fa-chart-line me-2"></i>REPORTERÍA Y BÚSQUEDA
+                            PROFUNDA</h6>
+                        <button class="btn btn-sm btn-success fw-bold" onclick="exportarExcelHistorico()"
+                            id="btnExcelHistorico" disabled>
+                            <i class="fas fa-file-excel me-1"></i> DESCARGAR REPORTE
+                        </button>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-2">
+                            <label class="label-tech-bright small">Año</label>
+                            <select id="filtroAnoDeep" class="form-select l3d-input">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="TODO">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="label-tech-bright small">Mes</label>
+                            <select id="filtroMesDeep" class="form-select l3d-input">
+                                <option value="TODO">Todos los meses</option>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="label-tech-bright small">Servicio</label>
+                            <select id="filtroServicioDeep" class="form-select l3d-input">
+                                <option value="TODO">Todos</option>
+                                <option value="Impresión 3D">Solo Impresión</option>
+                                <option value="Diseño 3D">Solo Diseño</option>
+                                <option value="Diseño e Impresión 3D">Diseño e Impresión</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="label-tech-bright small">Estado Final</label>
+                            <select id="filtroEstadoDeep" class="form-select l3d-input">
+                                <option value="TODO">Todos</option>
+                                <option value="ENTREGADO">Exitosos (Entregados)</option>
+                                <option value="RECHAZADA">Rechazados / Fallidos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="label-tech-bright small">Cliente, RUT o Tracking (Opcional)</label>
+                            <div class="input-group">
+                                <input type="text" id="inputDeepSearch" class="form-control l3d-input"
+                                    placeholder="Dejar vacío para ver todo el año">
+                                <button class="btn btn-info fw-bold text-dark px-3"
+                                    onclick="ejecutarBusquedaProfunda()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 text-center" id="kpisHistoricos">
+                        <div class="col-md-4">
+                            <div class="p-2 border border-success rounded" style="background: rgba(25, 135, 84, 0.1);">
+                                <small class="text-success fw-bold d-block">EXITOSOS (FILTRO)</small>
+                                <span class="fs-5 fw-bold text-white" id="kpi-hist-exitosos">0</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-2 border border-danger rounded" style="background: rgba(220, 53, 69, 0.1);">
+                                <small class="text-danger fw-bold d-block">RECHAZOS (FILTRO)</small>
+                                <span class="fs-5 fw-bold text-white" id="kpi-hist-rechazados">0</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-2 border border-warning rounded" style="background: rgba(255, 193, 7, 0.1);">
+                                <small class="text-warning fw-bold d-block">RECAUDADO (FILTRO)</small>
+                                <span class="fs-5 fw-bold text-gold" id="kpi-hist-recaudado">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- PANEL DE INDICADORES ANUALES (KPIs)                     -->
+                <!-- Estos valores reflejan estrictamente el AÑO EN CURSO.   -->
+                <!-- Se excluyen las Garantías (-G) de la recaudación.       -->
+                <!-- ======================================================= -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div
+                            class="section-container p-3 d-flex align-items-center border-start border-success border-4 mb-0 position-relative">
+                            <span class="position-absolute top-0 end-0 mt-1 me-2 text-muted"
+                                style="font-size: 0.6rem;">AÑO EN CURSO</span>
+                            <div class="stat-icon bg-success text-white p-2 rounded me-3"><i
+                                    class="fas fa-check-double"></i></div>
+                            <div><label class="label-tech small">TOTAL EXITOSOS</label>
+                                <h3 class="fw-bold m-0" id="kpi-exitosos">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div
+                            class="section-container p-3 d-flex align-items-center border-start border-danger border-4 mb-0 position-relative">
+                            <span class="position-absolute top-0 end-0 mt-1 me-2 text-muted"
+                                style="font-size: 0.6rem;">AÑO EN CURSO</span>
+                            <div class="stat-icon bg-danger text-white p-2 rounded me-3"><i
+                                    class="fas fa-times-circle"></i></div>
+                            <div><label class="label-tech small">RECHAZADOS / FALLIDOS</label>
+                                <h3 class="fw-bold m-0" id="kpi-rechazados">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div
+                            class="section-container p-3 d-flex align-items-center border-start border-warning border-4 mb-0 position-relative">
+                            <span class="position-absolute top-0 end-0 mt-1 me-2 text-muted"
+                                style="font-size: 0.6rem;">AÑO EN CURSO</span>
+                            <div class="stat-icon bg-warning text-black p-2 rounded me-3"><i
+                                    class="fas fa-hand-holding-usd"></i></div>
+                            <div><label class="label-tech small">TOTAL RECAUDADO</label>
+                                <h3 class="fw-bold m-0 text-gold" id="kpi-recaudado">$--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- SISTEMA DE FILTRADO LOCAL (Frontend Engine)             -->
+                <!-- Busca solo en los resultados visibles en la tabla actual.-->
+                <!-- ======================================================= -->
+                <div class="section-container p-4 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="label-tech-bright small">Buscador en Tabla</label>
+                            <input type="text" id="buscadorGlobal" class="form-control l3d-input"
+                                placeholder="Filtrar por Tracking, RUT, Cliente o Email..."
+                                onkeyup="filtrarHistorial()">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="label-tech-bright small">Estado Final</label>
+                            <select id="filtroEstado" class="form-select l3d-input" onchange="filtrarHistorial()">
+                                <option value="">Todos</option>
+                                <option value="NUEVA">NUEVA</option>
+                                <option value="PENDIENTE_TECNICOS">PENDIENTE TECNICOS</option>
+                                <option value="EN_EVALUACION">EN EVALUACION</option>
+                                <option value="PRESUPUESTADO">PRESUPUESTADO</option>
+                                <option value="EN_PRODUCCION">EN PRODUCCIÓN</option>
+                                <option value="LISTO_PARA_ENTREGA">LISTO ENTREGA</option>
+                                <option value="ENTREGADO">ENTREGADO</option>
+                                <option value="RECHAZADA">RECHAZADA</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button class="btn btn-outline-secondary w-100 border-2 fw-bold"
+                                onclick="limpiarFiltros()">LIMPIAR FILTROS</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- GRILLA DE RESULTADOS (Arquitectura de Tablas)           -->
+                <!-- ======================================================= -->
+                <div class="section-container p-0 overflow-hidden">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover table-l3d m-0" id="tablaHistorial">
+                            <thead>
+                                <tr class="small text-muted border-bottom border-secondary">
+                                    <th class="ps-4">TRACKING</th>
+                                    <th>CLIENTE / CONTACTO</th>
+                                    <th>SERVICIO</th>
+                                    <th>VALOR</th>
+                                    <th>ESTADO</th>
+                                    <th class="text-end pe-4">ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Iteración dinámica mediante Thymeleaf -->
+                                <tr th:each="p : ${pedidos}" class="align-middle">
+                                    <td class="ps-4 fw-bold text-gold font-monospace tracking-col"
+                                        th:text="${p?.codigoSeguimiento}">LEG-XXXX</td>
+                                    <td>
+                                        <div class="fw-bold text-white-bright" th:text="${p?.cliente?.nombre}">Nombre
+                                            Cliente</div>
+                                        <div class="text-white-50 extra-small"
+                                            th:text="${(p?.cliente?.rut ?: 'Sin RUT') + ' | ' + (p?.cliente?.email ?: 'Sin correo')}">
+                                            RUT | Email</div>
+                                    </td>
+                                    <td class="small" th:text="${p?.servicioSolicitado}">Servicio</td>
+
+                                    <!-- Formateo de Moneda Local -->
+                                    <td class="fw-bold text-warning precio-col"
+                                        th:text="${p?.precioFinal != null ? '$' + #numbers.formatInteger(p.precioFinal, 0, 'POINT') : '$0'}">
+                                        $0</td>
+
+                                    <td><span class="status-badge estado-col" th:text="${p?.estadoActual}">ESTADO</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <!-- Acceso al Editor Maestro -->
+                                            <button class="btn btn-sm btn-edit-master"
+                                                th:onclick="abrirEditorMaestro([[${p?.id}]])" title="Edición Total">
+                                                <i class="fas fa-user-edit me-1"></i> EDITAR
+                                            </button>
+
+                                            <!-- MÓDULO DE GARANTÍA -->
+                                            <button class="btn btn-sm btn-outline-warning"
+                                                title="Generar Garantía (Soft Clone)"
+                                                th:onclick="generarGarantia([[${p?.id}]], '[[${p?.codigoSeguimiento}]]')">
+                                                <i class="bi bi-shield-check"></i>
+                                            </button>
+
+                                            <!-- SAFETY LOCK LÓGICO: Borrado condicionado al estado final -->
+                                            <button
+                                                th:if="${p?.estadoActual == 'ENTREGADO' or p?.estadoActual == 'RECHAZADA'}"
+                                                class="btn btn-sm btn-outline-danger" title="Archivar/Eliminar Lógico"
+                                                th:onclick="eliminarPedido([[${p?.id}]])">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+
+                                            <button
+                                                th:unless="${p?.estadoActual == 'ENTREGADO' or p?.estadoActual == 'RECHAZADA'}"
+                                                class="btn btn-sm btn-outline-secondary opacity-50"
+                                                title="Seguridad: No se puede borrar un pedido en curso" disabled>
+                                                <i class="fas fa-lock"></i>
+                                            </button>
+
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Feedback de Base de Datos Vacía -->
+                                <tr th:if="${#lists.isEmpty(pedidos)}">
+                                    <td colspan="6" class="text-center text-muted py-4">No hay registros en la base de
+                                        datos.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- MODAL: EDITOR MAESTRO DE EXPEDIENTES (Admin Override)   -->
+    <!-- Herramienta de super-administrador. Protegida con candados-->
+    <!-- ======================================================= -->
+    <div class="modal fade" id="modalEditorMaestro" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen modal-dialog-centered p-4">
+            <div class="modal-content bg-black border border-warning shadow-lg">
+
+                <div class="modal-header border-secondary bg-gold-soft position-relative">
+                    <h5 class="modal-title text-gold fw-bold"><i class="fas fa-database me-2"></i> Editor Maestro: <span
+                            id="idExpediente">---</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- BANNER DE GARANTÍA: Alerta visual si el pedido es post-venta (Coste $0) -->
+                <div id="bannerGarantia" class="bg-danger text-white text-center py-2 fw-bold d-none"
+                    style="letter-spacing: 2px;">
+                    <i class="fas fa-exclamation-triangle me-2"></i> ESTE EXPEDIENTE ES UNA GARANTÍA (COSTE $0)
+                </div>
+
+                <!-- Formulario AJAX asíncrono -->
+                <form id="formEditorMaestro" onsubmit="guardarCambiosTotales(event, this)">
+                    <div class="modal-body p-4">
+                        <div class="row g-4">
+
+                            <!-- ========================================== -->
+                            <!-- SECCIÓN 1: DATOS PERSONALES Y DE CONTACTO  -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4 border-end border-secondary">
+                                <h6 class="form-section-title">1. Cliente y Contacto</h6>
+                                <div class="mb-3">
+                                    <label class="label-tech small text-info">Nombre Completo</label>
+                                    <input type="text" id="editNombre" class="form-control l3d-input">
+                                </div>
+
+                                <!-- SAFETY LOCK: RUT -->
+                                <!-- Se bloquea para evitar dañar las búsquedas. Doble clic en candado para editar -->
+                                <div class="mb-3">
+                                    <label class="label-tech small text-info">RUT <span class="text-muted"
+                                            style="font-size:0.6rem;">(Bloqueado por seguridad)</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-secondary" style="cursor:pointer;"
+                                            onclick="toggleLock('editRut', this)" title="Doble clic para desbloquear">
+                                            <i class="fas fa-lock text-muted"></i>
+                                        </span>
+                                        <input type="text" id="editRut"
+                                            class="form-control l3d-input bg-dark text-muted" readonly maxlength="10"
+                                            placeholder="Ej: 12345678-9">
+                                    </div>
+                                </div>
+
+                                <!-- SAFETY LOCK: EMAIL -->
+                                <div class="mb-3">
+                                    <label class="label-tech small text-info">Email</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-secondary" style="cursor:pointer;"
+                                            onclick="toggleLock('editEmail', this)" title="Doble clic para desbloquear">
+                                            <i class="fas fa-lock text-muted"></i>
+                                        </span>
+                                        <input type="email" id="editEmail"
+                                            class="form-control l3d-input bg-dark text-muted" readonly>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="label-tech small text-info">Teléfono</label>
+                                    <input type="text" id="editTelefono" class="form-control l3d-input" maxlength="12"
+                                        placeholder="Ej: 56912345678">
+                                </div>
+
+                                <!-- Desplegable Estricto: Origen -->
+                                <div class="mb-3">
+                                    <label class="label-tech small">Origen Contacto</label>
+                                    <select id="editOrigen" class="form-select l3d-input">
+                                        <option value="Web">Web (Formulario)</option>
+                                        <option value="Instagram">Instagram</option>
+                                        <option value="Referido">Referido</option>
+                                        <option value="Manual Luis">Ingreso Manual</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="label-tech small">Mensaje Original</label>
+                                    <textarea id="editMensajeOrig" class="form-control l3d-input" rows="3"></textarea>
+                                </div>
+                                <div class="mt-4"><label class="label-tech small text-danger"><i
+                                            class="fas fa-edit me-1"></i>Justificación Cliente
+                                        (Auditoría)</label><textarea id="auditCliente"
+                                        class="form-control l3d-input border-danger" rows="2"
+                                        placeholder="Motivo si editas Identidad/Contacto..."></textarea></div>
+                            </div>
+
+                            <!-- ========================================== -->
+                            <!-- SECCIÓN 2: CONTROL FINANCIERO Y NUBE       -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4 border-end border-secondary">
+                                <h6 class="form-section-title">2. Pedido y Finanzas</h6>
+
+                                <!-- Desplegable Estricto: Estado -->
+                                <div class="mb-3">
+                                    <label class="label-tech small text-warning">Estado Actual (Admin Override)</label>
+                                    <select id="editEstado" class="form-select l3d-input fw-bold">
+                                        <option value="NUEVA">NUEVA</option>
+                                        <option value="PENDIENTE_TECNICOS">PENDIENTE TECNICOS</option>
+                                        <option value="EN_EVALUACION">EN EVALUACION</option>
+                                        <option value="PRESUPUESTADO">PRESUPUESTADO</option>
+                                        <option value="PAGO_ENVIADO">PAGO EN REVISIÓN</option>
+                                        <option value="EN_PRODUCCION">EN PRODUCCION</option>
+                                        <option value="LISTO_PARA_ENTREGA">LISTO PARA ENTREGA</option>
+                                        <option value="ENTREGADO">ENTREGADO</option>
+                                        <option value="RECHAZADA">RECHAZADA</option>
+                                    </select>
+                                </div>
+
+                                <!-- Desplegable Estricto: Servicio -->
+                                <div class="mb-3">
+                                    <label class="label-tech small">Servicio Solicitado</label>
+                                    <select id="editServicio" class="form-select l3d-input">
+                                        <option value="Impresión 3D">Impresión 3D</option>
+                                        <option value="Diseño 3D">Diseño 3D</option>
+                                        <option value="Diseño e Impresión 3D">Diseño e Impresión 3D</option>
+                                    </select>
+                                </div>
+
+                                <!-- SAFETY LOCK Y CÁLCULO FINANCIERO -->
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="label-tech small text-success">Precio Final Bruto ($)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary"
+                                                style="cursor:pointer;" onclick="toggleLock('editPrecio', this)"
+                                                title="Doble clic para desbloquear">
+                                                <i class="fas fa-lock text-muted"></i>
+                                            </span>
+                                            <input type="number" step="0.01" min="0" id="editPrecio"
+                                                class="form-control l3d-input bg-dark text-muted fw-bold" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <!-- Abono es solo lectura. Se calcula en JS sumando la tabla 'pagos' -->
+                                        <label class="label-tech small text-info">Total Abonado ($)</label>
+                                        <input type="text" id="viewAbonado"
+                                            class="form-control l3d-input text-muted bg-dark" readonly disabled
+                                            title="Suma de registros en Caja. Añade pagos vía F2.">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="label-tech small">Fecha Entrega Estimada</label>
+                                    <input type="date" id="editFecha" class="form-control l3d-input">
+                                </div>
+
+                                <div class="row g-2 mb-3 mt-2">
+                                    <div class="col-6">
+                                        <label class="label-tech small">Presupuesto Estimado</label>
+                                        <select id="editPresupuesto" class="form-select l3d-input">
+                                            <option value="">- Sin dato -</option>
+                                            <option value="Menos de $50.000 CLP">Menos de $50.000 CLP</option>
+                                            <option value="Entre $50.000 y $300.000 CLP">Entre $50.000 y $300.000 CLP
+                                            </option>
+                                            <option value="Entre $500.000 y $1.000.000 CLP">Entre $500.000 y $1.000.000
+                                                CLP</option>
+                                            <option value="Entre $1.000.000 y $2.000.000 CLP">Entre $1.000.000 y
+                                                $2.000.000 CLP</option>
+                                            <option value="Más de $3.000.000 CLP">Más de $3.000.000 CLP</option>
+                                            <option value="Sin presupuesto definido / Cotizar">Sin presupuesto definido
+                                                / Cotizar</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="label-tech small">Días Entrega Solicitados</label>
+                                        <select id="editDiasEntrega" class="form-select l3d-input">
+                                            <option value="">- Sin dato -</option>
+                                            <option value="Menos de 1 semana">(Menos de 1 semana)</option>
+                                            <option value="1 Semana">1 Semana</option>
+                                            <option value="2 Semanas">2 Semanas</option>
+                                            <option value="3 Semanas">3 Semanas</option>
+                                            <option value="4 Semanas">4 Semanas</option>
+                                            <option value="Más de 5 semanas">Más de 5 semanas</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <hr class="border-secondary my-3">
+
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="label-tech small text-gold m-0">Enlaces a Nube</h6>
+                                    <!-- BOTÓN PUENTE A GOOGLE DRIVE: Usa el tracking para buscar en Drive -->
+                                    <button type="button" class="btn btn-sm btn-outline-info p-1"
+                                        onclick="buscarEnDrive()" title="Buscar evidencias en Drive por Tracking"><i
+                                            class="fab fa-google-drive me-1"></i>Buscar Drive</button>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="label-tech" style="font-size: 0.6rem;">Formulario Ingeniería
+                                        (Formulario 2 - Cliente)</label>
+                                    <div class="input-group input-group-sm">
+                                        <!-- Agregamos este input que nos faltaba para auditar los datos que mandó el cliente -->
+                                        <input type="text" id="editLinkIngenieria" class="form-control l3d-input">
+                                        <button class="btn btn-outline-info" type="button"
+                                            onclick="window.open(document.getElementById('editLinkIngenieria').value, '_blank')"><i
+                                                class="fas fa-external-link-alt"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="label-tech" style="font-size: 0.6rem;">Link Archivo Inicial
+                                        (WordPress)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="editLinkInicial" class="form-control l3d-input">
+                                        <button class="btn btn-outline-info" type="button"
+                                            onclick="window.open(document.getElementById('editLinkInicial').value, '_blank')"><i
+                                                class="fas fa-external-link-alt"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="label-tech" style="font-size: 0.6rem;">Link Comprobante Pago</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="editLinkPago" class="form-control l3d-input">
+                                        <button class="btn btn-outline-info" type="button"
+                                            onclick="window.open(document.getElementById('editLinkPago').value, '_blank')"><i
+                                                class="fas fa-external-link-alt"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mt-4"><label class="label-tech small text-danger"><i
+                                            class="fas fa-edit me-1"></i>Justificación Finanzas
+                                        (Auditoría)</label><textarea id="auditFinanzas"
+                                        class="form-control l3d-input border-danger" rows="2"
+                                        placeholder="Motivo si fuerzas Estado o Precio..."></textarea></div>
+                            </div>
+
+                            <!-- ========================================== -->
+                            <!-- SECCIÓN 3: INGENIERÍA Y LOGÍSTICA          -->
+                            <!-- ========================================== -->
+                            <div class="col-md-4">
+                                <h6 class="form-section-title">3. Ingeniería y Logística</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-4"><label class="label-tech small">X (Ancho)</label><input
+                                            type="number" step="0.01" min="0" id="editAncho"
+                                            class="form-control l3d-input"></div>
+                                    <div class="col-4"><label class="label-tech small">Y (Alto)</label><input
+                                            type="number" step="0.01" min="0" id="editAlto"
+                                            class="form-control l3d-input"></div>
+                                    <div class="col-4"><label class="label-tech small">Z (Prof)</label><input
+                                            type="number" step="0.01" min="0" id="editProf"
+                                            class="form-control l3d-input"></div>
+                                </div>
+
+
+
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-4"><label class="label-tech small">Unidades</label>
+                                        <input type="number" min="0" id="editUnidades" class="form-control l3d-input">
+                                    </div>
+                                    <div class="col-8">
+                                        <label class="label-tech small">¿Tiene Pieza Física?</label>
+                                        <select id="editPiezaFisica" class="form-select l3d-input"
+                                            onchange="toggleEditNecesidad(this.value)">
+                                            <option value="true">Sí</option>
+                                            <option value="false">No</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div id="edit-group-con-pieza" class="mb-3 d-none">
+                                    <label class="label-tech small text-gold">¿Qué hacer con la pieza física?</label>
+                                    <select id="editSelectConPieza" class="form-select l3d-input">
+                                        <option value="">- Selecciona una opción -</option>
+                                        <option value="Reemplazo (Pieza rota o gastada)">Reemplazo (Pieza rota o
+                                            gastada)</option>
+                                        <option value="Modificar diseño (Cambiar geometría original)">Modificar diseño
+                                            (Cambiar geometría original)</option>
+                                        <option value="Duplicarla (Copia idéntica)">Duplicarla (Copia idéntica)</option>
+                                        <option value="Cambiar tamaño (Escalado)">Cambiar tamaño (Escalado)</option>
+                                        <option value="Accesorio (Pieza que calza en otra)">Accesorio (Pieza que calza
+                                            en otra)</option>
+                                        <option value="Digitalizar (Solo escaneo 3D)">Digitalizar (Solo escaneo 3D)
+                                        </option>
+                                        <option value="Asesoramiento técnico">Asesoramiento técnico</option>
+                                    </select>
+                                </div>
+
+                                <div id="edit-group-sin-pieza" class="mb-3 d-none">
+                                    <label class="label-tech small text-gold">Estado del proyecto digital</label>
+                                    <select id="editSelectSinPieza" class="form-select l3d-input">
+                                        <option value="">- Selecciona una opción -</option>
+                                        <option value="Ya tengo el archivo 3D listo para imprimir">Ya tengo el archivo
+                                            3D listo para imprimir</option>
+                                        <option value="Tengo un Enlace a modelo">Tengo un enlace del modelo
+                                            (Thingiverse/Cults)</option>
+                                        <option value="Tengo un archivo 3D pero necesita modificaciones">Tengo un
+                                            archivo 3D pero necesita modificaciones</option>
+                                        <option value="Solo tengo Planos/bocetos/fotos">Solo tengo planos, bocetos o
+                                            fotos</option>
+                                        <option value="Asesoramiento/solo idea">No tengo nada, solo la idea
+                                            (Asesoramiento)</option>
+                                    </select>
+                                </div>
+
+
+
+
+
+
+
+                                <div class="row g-2 mb-3 mt-1">
+                                    <div class="col-4">
+                                        <label class="label-tech small" style="font-size: 0.65rem;">¿Debe
+                                            calzar?</label>
+                                        <select id="editTolerancia" class="form-select l3d-input">
+                                            <option value="false">No es necesario</option>
+                                            <option value="true">Sí, debe calzar</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="label-tech small" style="font-size: 0.65rem;">¿Copia
+                                            exacta?</label>
+                                        <select id="editEsCopia" class="form-select l3d-input">
+                                            <option value="false">No, son diferentes</option>
+                                            <option value="true">Sí, es copia</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="label-tech small" style="font-size: 0.65rem;">Entorno de
+                                            Uso</label>
+<select id="editEntorno" class="form-select l3d-input">
+    <option value="">- Selecciona el entorno -</option>
+    <option value="Fricción mecánica Fricción/Fuerza">Mecánico (Fricción / Fuerza)</option>
+    <option value="Exterior Intemperie/Sol/UV">Exterior (Sol / Lluvia / UV)</option>
+    <option value="Estético/Decorativo">Estético / Decorativo</option>
+    <option value="Alta temperatura (>50°C - Grados centigrados)">Alta temperatura (>50°C - Grados centigrados)</option>
+    <option value="Resistencia a Impactos">Resistencia a Impactos</option>
+    <option value="Contacto agua">Contacto constante con agua</option>
+    <option value="Contacto con alimentos">Contacto con alimentos (Certificado)</option>
+    <option value="Resistencia a Químicos/Solventes">Resistencia a Químicos / Solventes</option>
+    <option value="Soporte de Carga Estructural">Soporte de Carga Estructural</option>
+    <option value="Otro entorno (Detallar abajo)">Otro entorno (Detallar abajo)</option>
+</select>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <!-- Desplegable Estricto: Material -->
+                                        <label class="label-tech small">Material Principal</label>
+<select id="editMaterial" class="form-select l3d-input">
+    <option value="">- Selecciona un material -</option>
+    <option value="PLA/PLA+">PLA / PLA+ (Estándar/Biodegradable)</option>
+    <option value="PETG/ABS">PETG / ABS (Funcional/Resistente)</option>
+    <option value="TPU/ABSMAX">TPU / ABS MAX (Flexible/Reforzado)</option>
+    <option value="PET-CF">PET-CF (Fibra de Carbono - Industrial)</option>
+    <option value="PLA ST">PLA ST (Súper Tenaz)</option>
+    <option value="Sakata/BLAB">Sakata / BLAB (Especiales)</option>
+    <option value="ASA">ASA (Resistente UV/Exterior)</option>
+    <option value="TPU A95 HF">TPU A95 HF (Goma industrial)</option>
+    <option value="Otro/ Necesito asesoría">Otro/ Necesito asesoría</option>
+</select>
+                                    </div>
+                                    <div class="col-6"><label class="label-tech small">Color</label><input type="text"
+                                            id="editColor" class="form-control l3d-input" placeholder="Ej: Negro Matte">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <!-- Desplegable Estricto: Entrega -->
+                                    <label class="label-tech small">Método Logístico</label>
+                                    <select id="editMetodoEntrega" class="form-select l3d-input">
+                                        <option value="STARKEN">Envío Físico (Starken)</option>
+                                        <option value="RETIRO">Retiro en Taller</option>
+                                        <option value="DIGITAL">Entrega 100% Digital</option>
+                                        <option value="MIXTO">Mixto (Físico + Nube)</option>
+                                    </select>
+                                </div>
+                                <h6 class="label-tech small text-gold mb-2 mt-3 border-bottom border-secondary pb-1">
+                                    Desglose de Dirección</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="label-tech small">Región</label>
+                                        <select id="editRegion" class="form-select l3d-input">
+                                            <option value="">- Selecciona Región -</option>
+                                            <option value="Arica y Parinacota">Arica y Parinacota</option>
+                                            <option value="Tarapacá">Tarapacá</option>
+                                            <option value="Antofagasta">Antofagasta</option>
+                                            <option value="Atacama">Atacama</option>
+                                            <option value="Coquimbo">Coquimbo</option>
+                                            <option value="Valparaíso">Valparaíso</option>
+                                            <option value="Metropolitana">Metropolitana</option>
+                                            <option value="O'Higgins">O'Higgins</option>
+                                            <option value="Maule">Maule</option>
+                                            <option value="Ñuble">Ñuble</option>
+                                            <option value="Biobío">Biobío</option>
+                                            <option value="La Araucanía">La Araucanía</option>
+                                            <option value="Los Ríos">Los Ríos</option>
+                                            <option value="Los Lagos">Los Lagos</option>
+                                            <option value="Aysén">Aysén</option>
+                                            <option value="Magallanes">Magallanes</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6"><label class="label-tech small">Comuna</label><input type="text"
+                                            id="editComuna" class="form-control l3d-input"
+                                            placeholder="Ej: Providencia"></div>
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6"><label class="label-tech small">Calle y N°</label><input
+                                            type="text" id="editCalle" class="form-control l3d-input"
+                                            placeholder="Ej: Portugal 1348"></div>
+                                    <div class="col-6"><label class="label-tech small">Depto/Casa</label><input
+                                            type="text" id="editDepto" class="form-control l3d-input"
+                                            placeholder="Opcional"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="label-tech small">Tipo Envío Starken</label>
+                                    <select id="editTipoEnvioStarken" class="form-select l3d-input">
+                                        <option value="">- No Aplica -</option>
+                                        <option value="A Domicilio (Envío por Paga)">A Domicilio (Envío por Pagar)
+                                        </option>
+                                        <option value="A Sucursal Starken (Envío por Paga)">A Sucursal Starken</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="label-tech" style="font-size: 0.6rem;">Link de Envío (Tracking / Drive
+                                        Final)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="editLinkEnvio"
+                                            class="form-control l3d-input text-warning">
+                                        <button class="btn btn-outline-info" type="button"
+                                            onclick="window.open(document.getElementById('editLinkEnvio').value, '_blank')"><i
+                                                class="fas fa-external-link-alt"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="label-tech" style="font-size: 0.6rem;">Link Archivo STL (Para
+                                        Imprimir)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="editLinkFinal" class="form-control l3d-input">
+                                        <button class="btn btn-outline-warning" type="button"
+                                            onclick="window.open(document.getElementById('editLinkFinal').value, '_blank')"><i
+                                                class="fas fa-external-link-alt"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+    <label class="label-tech small text-gold">Información Adicional (Requerimiento Cliente)</label>
+    <textarea id="editInfoAdicional" class="form-control l3d-input" rows="3" 
+              placeholder="Notas adicionales del formulario técnico..."></textarea>
+</div>
+                                <div class="mt-4"><label class="label-tech small text-danger"><i
+                                            class="fas fa-edit me-1"></i>Justificación Ingeniería
+                                        (Auditoría)</label><textarea id="auditIngenieria"
+                                        class="form-control l3d-input border-danger" rows="2"
+                                        placeholder="Motivo si alteras Medidas, Logística..."></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">CANCELAR</button>
+                        <!-- Cambiamos el texto para dejar claro que esta acción genera registro de auditoría -->
+                        <button type="submit" id="btnGuardarMaestro" class="btn btn-l3d-gold px-5 fw-bold"><i
+                                class="fas fa-save me-2"></i> GUARDAR Y AUDITAR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        /**
+         * ============================================================================
+         * CEREBRO ANALÍTICO Y GESTIÓN DE ESTADO (UI)
+         * ============================================================================
+         * pedidoEdicionActual: Puntero de referencia para el expediente en edición.
+         * dataOriginal: Memoria fotográfica para la auditoría. Guarda el estado original 
+         *               de los datos críticos para compararlos antes de guardar.
+         * modalMaestro: Instancia controlada de Bootstrap para el manejo del Editor Maestro.
+         */
+        let pedidoEdicionActual = null;
+        let dataOriginal = {};
+        const modalMaestro = new bootstrap.Modal(document.getElementById('modalEditorMaestro'));
+
+        // 1. INICIALIZACIÓN DEL ENTORNO
+        // Este evento garantiza que el sistema esté listo antes de ejecutar cálculos.
+        document.addEventListener("DOMContentLoaded", () => {
+            calcularKPIs(); // Ejecución inicial de métricas financieras.
+
+            // Lógica de "Deep Linking": Permite abrir un expediente directamente 
+            // si el ID viene presente en la URL (parámetro ?id=).
+            const params = new URLSearchParams(window.location.search);
+            const idEditar = params.get('id');
+            if (idEditar) abrirEditorMaestro(idEditar);
+        });
+
+        /**
+         * ============================================================================
+         * SISTEMA DE SEGURIDAD OPERATIVA (SAFETY LOCKS & HERRAMIENTAS)
+         * ============================================================================
+         */
+
+        // SAFETY LOCK: Función para bloquear/desbloquear campos sensibles
+        // Previene que Luis altere el precio, el RUT o correos por un "dedazo" o al hacer scroll.
+        function toggleLock(inputId, iconSpan) {
+            const input = document.getElementById(inputId);
+            const icon = iconSpan.querySelector('i');
+
+            if (input.readOnly) {
+                // Desbloquear campo
+                input.readOnly = false;
+                input.classList.remove('bg-dark', 'text-muted');
+                input.classList.add('border-warning', 'text-white');
+                icon.classList.replace('fa-lock', 'fa-unlock');
+                icon.classList.replace('text-muted', 'text-warning');
+            } else {
+                // Bloquear campo nuevamente
+                input.readOnly = true;
+                input.classList.add('bg-dark', 'text-muted');
+                input.classList.remove('border-warning', 'text-white');
+                icon.classList.replace('fa-unlock', 'fa-lock');
+                icon.classList.replace('text-warning', 'text-muted');
+            }
+        }
+
+        // PUENTE INTELIGENTE A GOOGLE DRIVE
+        // Toma el ID del expediente actual (Ej: LEG-T001) y abre una pestaña ejecutando 
+        // una búsqueda nativa en Drive. Ideal para ubicar fotos o PDFs perdidos.
+        function buscarEnDrive() {
+            const tracking = document.getElementById('idExpediente').innerText;
+            if (tracking && tracking !== "---") {
+                window.open(`https://drive.google.com/drive/search?q=${tracking}`, '_blank');
+            } else {
+                Swal.fire("Atención", "No hay un código de tracking válido para buscar.", "warning");
+            }
+        }
+
+        // Función Espejo: Alterna los selectores según si tiene pieza o no.
+        function toggleEditNecesidad(valor) {
+            const groupCon = document.getElementById('edit-group-con-pieza');
+            const groupSin = document.getElementById('edit-group-sin-pieza');
+            const selectCon = document.getElementById('editSelectConPieza');
+            const selectSin = document.getElementById('editSelectSinPieza');
+
+            if (valor === 'true') {
+                groupCon.classList.remove('d-none');
+                groupSin.classList.add('d-none');
+                selectSin.value = ""; // Limpia el que se oculta para no guardar basura
+            } else {
+                groupCon.classList.add('d-none');
+                groupSin.classList.remove('d-none');
+                selectCon.value = ""; // Limpia el que se oculta
+            }
+        }
+
+
+
+
+        // ============================================================================
+        // MOTOR DEL EDITOR MAESTRO (CARGA Y AUDITORÍA)
+        // ============================================================================
+        async function abrirEditorMaestro(id) {
+            if (!id) return;
+            pedidoEdicionActual = id;
+            document.getElementById('idExpediente').innerText = "Cargando...";
+
+            // APAGADO DEL POLICÍA CIEGO: Desactivamos la validación silenciosa de HTML5
+            const formMaestro = document.getElementById('formEditorMaestro');
+            if (formMaestro) formMaestro.setAttribute('novalidate', 'true');
+
+            // RESET DE SEGURIDAD DEL BOTÓN UI
+            const btnGuardar = document.getElementById('btnGuardarMaestro');
+            if (btnGuardar) {
+                btnGuardar.innerHTML = '<i class="fas fa-save me-2"></i> GUARDAR Y AUDITAR';
+                btnGuardar.disabled = false;
+            }
+
+            modalMaestro.show();
+
+            try {
+                const response = await fetch(`/api/v1/pedidos/${id}`);
+                if (!response.ok) throw new Error("Expediente no encontrado en la base de datos.");
+                const data = await response.json();
+
+                const cli = data.cliente || {};
+                const dt = data.detallesTecnicos || {};
+
+                document.getElementById('idExpediente').innerText = data.codigoSeguimiento || id;
+
+                // Banner de Garantía
+                const banner = document.getElementById('bannerGarantia');
+                if (data.esGarantia || (data.codigoSeguimiento && data.codigoSeguimiento.endsWith('-G'))) {
+                    if (banner) banner.classList.remove('d-none');
+                } else {
+                    if (banner) banner.classList.add('d-none');
+                }
+
+                // --- Bloque 1: Cliente y Origen ---
+                if (document.getElementById('editNombre')) document.getElementById('editNombre').value = cli.nombre || "";
+                if (document.getElementById('editRut')) document.getElementById('editRut').value = cli.rut || "";
+                if (document.getElementById('editEmail')) document.getElementById('editEmail').value = cli.email || "";
+                if (document.getElementById('editTelefono')) document.getElementById('editTelefono').value = cli.telefono || "";
+                if (document.getElementById('editOrigen')) document.getElementById('editOrigen').value = data.origenContacto || "Web";
+                if (document.getElementById('editMensajeOrig')) document.getElementById('editMensajeOrig').value = data.mensajeOriginal || "";
+
+                // --- Bloque 2: Finanzas y Estados ---
+                if (document.getElementById('editEstado')) document.getElementById('editEstado').value = data.estadoActual || "NUEVA";
+                if (document.getElementById('editServicio')) document.getElementById('editServicio').value = data.servicioSolicitado || "Impresión 3D";
+                if (document.getElementById('editPrecio')) document.getElementById('editPrecio').value = data.precioFinal || 0;
+                if (document.getElementById('editFecha')) document.getElementById('editFecha').value = data.fechaEntregaEstimada || "";
+
+                const pagos = data.pagos || [];
+                const sumaAbonos = pagos.reduce((acc, curr) => acc + (curr.monto || 0), 0);
+                if (document.getElementById('viewAbonado')) document.getElementById('viewAbonado').value = `$ ${sumaAbonos.toLocaleString('es-CL')}`;
+
+                if (document.getElementById('editPresupuesto')) document.getElementById('editPresupuesto').value = dt.presupuestoEstimado || "";
+                if (document.getElementById('editDiasEntrega')) document.getElementById('editDiasEntrega').value = dt.diasEntrega || "";
+
+                if (document.getElementById('editLinkIngenieria')) document.getElementById('editLinkIngenieria').value = dt.linkFormularioIngenieria || "";
+                if (document.getElementById('editLinkInicial')) document.getElementById('editLinkInicial').value = data.linkArchivoInicial || "";
+                if (document.getElementById('editLinkPago')) document.getElementById('editLinkPago').value = data.linkComprobantePago || "";
+                if (document.getElementById('editLinkEnvio')) document.getElementById('editLinkEnvio').value = data.linkComprobanteEnvio || "";
+                // Carga del texto libre de Información Adicional
+                if (document.getElementById('editInfoAdicional')) document.getElementById('editInfoAdicional').value = dt.informacionAdicional || "";
+
+                // --- Bloque 3: Ingeniería de Producto ---
+                if (document.getElementById('editAncho')) document.getElementById('editAncho').value = dt.medidaAncho || 0;
+                if (document.getElementById('editAlto')) document.getElementById('editAlto').value = dt.medidaAlto || 0;
+                if (document.getElementById('editProf')) document.getElementById('editProf').value = dt.medidaProfundidad || 0;
+                if (document.getElementById('editUnidades')) document.getElementById('editUnidades').value = dt.cantidadUnidades || 1;
+
+                // NUEVA LÓGICA DE CARGA ESPEJO
+                if (document.getElementById('editPiezaFisica')) {
+                    const tienePieza = dt.tienePiezaFisica ? "true" : "false";
+                    document.getElementById('editPiezaFisica').value = tienePieza;
+
+                    // Forzamos a la UI a mostrar el cuadro correcto
+                    toggleEditNecesidad(tienePieza);
+
+                    // Inyectamos el texto viejo en el select correcto
+                    if (tienePieza === "true") {
+                        document.getElementById('editSelectConPieza').value = dt.necesitaModificacion || "";
+                    } else {
+                        document.getElementById('editSelectSinPieza').value = dt.necesitaModificacion || "";
+                    }
+                }
+
+                if (document.getElementById('editTolerancia')) document.getElementById('editTolerancia').value = dt.toleranciaCheck ? "true" : "false";
+                if (document.getElementById('editEsCopia')) document.getElementById('editEsCopia').value = dt.esCopiaExacta ? "true" : "false";
+                if (document.getElementById('editEntorno')) document.getElementById('editEntorno').value = dt.entornoUso || "";
+                if (document.getElementById('editRegion')) document.getElementById('editRegion').value = dt.region || "";
+                if (document.getElementById('editComuna')) document.getElementById('editComuna').value = dt.comuna || "";
+                if (document.getElementById('editCalle')) document.getElementById('editCalle').value = dt.calleYNumero || "";
+                if (document.getElementById('editDepto')) document.getElementById('editDepto').value = dt.deptoCasaOficina || "";
+                if (document.getElementById('editTipoEnvioStarken')) document.getElementById('editTipoEnvioStarken').value = dt.tipoEnvioStarken || "";
+
+                const material = dt.materialSolicitado || "PLA";
+                const selectMat = document.getElementById('editMaterial');
+                if (selectMat) {
+                    if ([...selectMat.options].some(o => o.value === material)) selectMat.value = material;
+                    else selectMat.value = "Otro";
+                }
+
+                if (document.getElementById('editColor')) document.getElementById('editColor').value = dt.colorSolicitado || "";
+
+                let m = (dt.metodoEntrega || "STARKEN").toUpperCase();
+                if (m.includes("RETIRO")) m = "RETIRO";
+                else if (m.includes("DIGITAL")) m = "DIGITAL";
+                else if (m.includes("MIXTO")) m = "MIXTO";
+                else m = "STARKEN";
+                if (document.getElementById('editMetodoEntrega')) document.getElementById('editMetodoEntrega').value = m;
+
+                if (document.getElementById('editDireccion')) {
+                    let dir = [dt.calleYNumero, dt.deptoCasaOficina, dt.comuna, dt.region].filter(Boolean).join(', ');
+                    document.getElementById('editDireccion').value = dir;
+                }
+                if (document.getElementById('editLinkFinal')) document.getElementById('editLinkFinal').value = dt.linkArchivoFinal || "";
+
+                // Limpieza de cajas de auditoría
+                if (document.getElementById('auditCliente')) document.getElementById('auditCliente').value = "";
+                if (document.getElementById('auditFinanzas')) document.getElementById('auditFinanzas').value = "";
+                if (document.getElementById('auditIngenieria')) document.getElementById('auditIngenieria').value = "";
+
+                // FOTOGRAFÍA ORIGINAL DE AUDITORÍA (DIFF CHECKER SEGURO)
+                dataOriginal = {
+                    rut: document.getElementById('editRut') ? document.getElementById('editRut').value.trim() : "",
+                    email: document.getElementById('editEmail') ? document.getElementById('editEmail').value.trim() : "",
+                    nombre: document.getElementById('editNombre') ? document.getElementById('editNombre').value.trim() : "",
+                    telefono: document.getElementById('editTelefono') ? document.getElementById('editTelefono').value.trim() : "",
+                    estado: document.getElementById('editEstado') ? document.getElementById('editEstado').value : "NUEVA",
+                    precio: document.getElementById('editPrecio') ? parseFloat(document.getElementById('editPrecio').value) || 0 : 0,
+                    ancho: document.getElementById('editAncho') ? parseFloat(document.getElementById('editAncho').value) || 0 : 0,
+                    alto: document.getElementById('editAlto') ? parseFloat(document.getElementById('editAlto').value) || 0 : 0,
+                    prof: document.getElementById('editProf') ? parseFloat(document.getElementById('editProf').value) || 0 : 0,
+                    unidades: document.getElementById('editUnidades') ? parseInt(document.getElementById('editUnidades').value) || 1 : 1,
+                    material: document.getElementById('editMaterial') ? document.getElementById('editMaterial').value : "",
+                    infoAdicional: dt.informacionAdicional || "",
+                    esGarantia: data.esGarantia || false,
+                    tienePieza: dt.tienePiezaFisica || false,
+                    necesidad: dt.necesitaModificacion || ""
+
+                };
+
+            } catch (e) {
+                Swal.fire("Error Crítico", `No se pudo cargar la información. Detalle: ${e.message}`, "error");
+                modalMaestro.hide();
+            }
+        }
+
+        // 3. GUARDAR CAMBIOS (Actualización Atómica y Auditoría)
+        async function guardarCambiosTotales(event, form) {
+            event.preventDefault();
+            if (!pedidoEdicionActual) return;
+
+            try {
+                // 1. LECTURA SEGURA DE VALORES ACTUALES
+                const nuevoRut = document.getElementById('editRut') ? document.getElementById('editRut').value.trim() : "";
+                const nuevoEmail = document.getElementById('editEmail') ? document.getElementById('editEmail').value.trim() : "";
+                const nuevoNombre = document.getElementById('editNombre') ? document.getElementById('editNombre').value.trim() : "";
+                const nuevoTel = document.getElementById('editTelefono') ? document.getElementById('editTelefono').value.trim() : "";
+                const nuevoEstado = document.getElementById('editEstado') ? document.getElementById('editEstado').value : "NUEVA";
+                const nuevoPrecio = document.getElementById('editPrecio') ? parseFloat(document.getElementById('editPrecio').value) || 0 : 0;
+                const nuevoAncho = document.getElementById('editAncho') ? parseFloat(document.getElementById('editAncho').value) || 0 : 0;
+                const nuevoAlto = document.getElementById('editAlto') ? parseFloat(document.getElementById('editAlto').value) || 0 : 0;
+                const nuevoProf = document.getElementById('editProf') ? parseFloat(document.getElementById('editProf').value) || 0 : 0;
+                const nuevasUnidades = document.getElementById('editUnidades') ? parseInt(document.getElementById('editUnidades').value) || 1 : 1;
+                const nuevoMaterial = document.getElementById('editMaterial') ? document.getElementById('editMaterial').value : "";
+                const nuevaInfoAdicional = document.getElementById('editInfoAdicional') ? document.getElementById('editInfoAdicional').value.trim() : "";
+
+                // LÓGICA INTELIGENTE DE EXTRACCIÓN (GEMELO FANTASMA)
+                let nuevaNecesidad = "";
+                const divEditCon = document.getElementById('edit-group-con-pieza');
+                if (divEditCon && !divEditCon.classList.contains('d-none')) {
+                    nuevaNecesidad = document.getElementById('editSelectConPieza').value;
+                } else {
+                    nuevaNecesidad = document.getElementById('editSelectSinPieza').value;
+                }
+                const nuevoTienePieza = document.getElementById('editPiezaFisica') ? document.getElementById('editPiezaFisica').value === 'true' : false;
+
+                // 2. VALIDACIONES ESTRICTAS CON FEEDBACK A LUIS
+                if (nuevoPrecio < 0 || nuevoAncho < 0 || nuevoAlto < 0 || nuevoProf < 0 || nuevasUnidades < 1) {
+                    Swal.fire("Valores Inválidos", "Las medidas, el precio o las unidades no pueden ser valores negativos ni cero (en unidades).", "error");
+                    return;
+                }
+
+                const rutRegex = /^[0-9]{7,8}-[0-9Kk]$/;
+                if (nuevoRut !== "" && !rutRegex.test(nuevoRut)) {
+                    Swal.fire("RUT Inválido", "El RUT debe escribirse con guion y sin puntos (Ej: 12345678-9).", "warning");
+                    return;
+                }
+
+                const telRegex = /^(?:\+?569|569)[0-9]{8}$/;
+                if (nuevoTel !== "" && !telRegex.test(nuevoTel)) {
+                    Swal.fire("Teléfono Inválido", "El teléfono debe empezar con 569 y tener 11 dígitos en total.", "warning");
+                    return;
+                }
+
+                // 3. AUDITORÍA OBLIGATORIA POR ÁREAS
+                const cambioCliente = (dataOriginal.rut !== nuevoRut || dataOriginal.email !== nuevoEmail || dataOriginal.nombre !== nuevoNombre || dataOriginal.telefono !== nuevoTel);
+                const cambioFinanzas = (dataOriginal.estado !== nuevoEstado || dataOriginal.precio !== nuevoPrecio);
+                const cambioIngenieria = (dataOriginal.ancho !== nuevoAncho || dataOriginal.alto !== nuevoAlto || dataOriginal.prof !== nuevoProf || dataOriginal.unidades !== nuevasUnidades || dataOriginal.material !== nuevoMaterial || dataOriginal.tienePieza !== nuevoTienePieza || dataOriginal.necesidad !== nuevaNecesidad || dataOriginal.infoAdicional !== nuevaInfoAdicional);
+
+                const justCliente = document.getElementById('auditCliente') ? document.getElementById('auditCliente').value.trim() : "";
+                const justFinanzas = document.getElementById('auditFinanzas') ? document.getElementById('auditFinanzas').value.trim() : "";
+                const justIngenieria = document.getElementById('auditIngenieria') ? document.getElementById('auditIngenieria').value.trim() : "";
+
+                if (cambioCliente && justCliente === "") {
+                    Swal.fire("Justificación Requerida", "Modificaste datos del Cliente. Por favor, escribe el motivo en la caja roja de la Columna 1.", "info");
+                    return;
+                }
+                if (cambioFinanzas && justFinanzas === "") {
+                    Swal.fire("Justificación Requerida", "Modificaste datos Financieros o de Estado. Es obligatorio justificar en la caja roja de la Columna 2.", "info");
+                    return;
+                }
+                if (cambioIngenieria && justIngenieria === "") {
+                    Swal.fire("Justificación Requerida", "Modificaste datos de Ingeniería (Medidas/Unidades/Material). Escribe el motivo en la caja roja de la Columna 3.", "info");
+                    return;
+                }
+
+                // 4. COPILOTO FINANCIERO (Bloqueo de Deuda Mágica)
+                let totalAbonado = 0;
+                if (document.getElementById('viewAbonado')) {
+                    const rawVal = document.getElementById('viewAbonado').value;
+                    const cleanedVal = rawVal.replace(/\./g, "").replace(/[^0-9-]/g, "");
+                    totalAbonado = parseFloat(cleanedVal) || 0;
+                }
+                const saldoPendiente = nuevoPrecio - totalAbonado;
+
+                if (nuevoEstado === 'ENTREGADO' && saldoPendiente > 5 && !dataOriginal.esGarantia) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '⚠️ Cobro Pendiente',
+                        text: `El sistema detecta una deuda de $${saldoPendiente.toLocaleString('es-CL')}. No puedes entregar el pedido con saldo pendiente.`,
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="fas fa-magic"></i> Ajustar Saldo a $0',
+                        cancelButtonText: 'Corregir Manualmente',
+                        confirmButtonColor: '#198754'
+                    }).then(async (result) => {
+                        if (result.isConfirmed) {
+                            try {
+                                const resp = await fetch(`/api/v1/pedidos/${pedidoEdicionActual}/liquidar-saldo`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ justificacion: "Ajuste administrativo automático desde el Editor." })
+                                });
+                                if (resp.ok) {
+                                    Swal.fire('¡Saldo Liquidado!', 'Las cuentas cuadran a $0. Dale a GUARDAR nuevamente para finalizar.', 'success')
+                                        .then(() => abrirEditorMaestro(pedidoEdicionActual));
+                                }
+                            } catch (e) { Swal.fire('Error', 'Fallo al conectar con Finanzas.', 'error'); }
+                        }
+                    });
+                    return;
+                }
+
+                // 5. INICIO DE GUARDADO SECUENCIAL
+                const btn = document.getElementById('btnGuardarMaestro');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando...';
+                btn.disabled = true;
+
+                const payload = {
+                    nombre: nuevoNombre,
+                    rut: nuevoRut,
+                    email: nuevoEmail,
+                    telefono: nuevoTel,
+                    servicioSolicitado: document.getElementById('editServicio') ? document.getElementById('editServicio').value : "Impresión 3D",
+                    precioFinal: nuevoPrecio,
+                    fechaEntregaEstimada: document.getElementById('editFecha') ? document.getElementById('editFecha').value : null,
+                    medidaAncho: nuevoAncho,
+                    medidaAlto: nuevoAlto,
+                    medidaProfundidad: nuevoProf,
+                    cantidadUnidades: nuevasUnidades,
+                    materialSolicitado: nuevoMaterial,
+                    colorSolicitado: document.getElementById('editColor') ? document.getElementById('editColor').value : "",
+                    metodoEntrega: document.getElementById('editMetodoEntrega') ? document.getElementById('editMetodoEntrega').value : "",
+                    informacionAdicional: nuevaInfoAdicional,
+                    tienePiezaFisica: nuevoTienePieza,
+                    necesitaModificacion: nuevaNecesidad,
+                    presupuestoEstimado: document.getElementById('editPresupuesto') ? document.getElementById('editPresupuesto').value : "",
+                    diasEntrega: document.getElementById('editDiasEntrega') ? document.getElementById('editDiasEntrega').value : "",
+                    toleranciaCheck: document.getElementById('editTolerancia') ? document.getElementById('editTolerancia').value === 'true' : false,
+                    esCopiaExacta: document.getElementById('editEsCopia') ? document.getElementById('editEsCopia').value === 'true' : false,
+                    entornoUso: document.getElementById('editEntorno') ? document.getElementById('editEntorno').value : "",
+                    region: document.getElementById('editRegion') ? document.getElementById('editRegion').value : "",
+                    comuna: document.getElementById('editComuna') ? document.getElementById('editComuna').value : "",
+                    calleYNumero: document.getElementById('editCalle') ? document.getElementById('editCalle').value : "",
+                    deptoCasaOficina: document.getElementById('editDepto') ? document.getElementById('editDepto').value : "",
+                    tipoEnvioStarken: document.getElementById('editTipoEnvioStarken') ? document.getElementById('editTipoEnvioStarken').value : "",
+                    justificacionCliente: justCliente,
+                    justificacionFinanzas: justFinanzas,
+                    justificacionIngenieria: justIngenieria
+                };
+
+                if (document.getElementById('editLinkIngenieria')) payload.linkFormularioIngenieria = document.getElementById('editLinkIngenieria').value;
+                if (document.getElementById('editLinkFinal')) payload.linkArchivoFinal = document.getElementById('editLinkFinal').value;
+
+                const responsePut = await fetch(`/api/v1/pedidos/${pedidoEdicionActual}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!responsePut.ok) {
+                    const errData = await responsePut.json().catch(() => ({}));
+                    throw new Error(errData.message || "El servidor rechazó los datos.");
+                }
+
+                // Si hubo cambios en el estado O alguna justificación manual, registramos forzosamente
+                if (dataOriginal.estado !== nuevoEstado || justCliente !== "" || justFinanzas !== "" || justIngenieria !== "") {
+                    await fetch(`/api/v1/pedidos/${pedidoEdicionActual}/estado`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nuevoEstado: nuevoEstado, mensajeTriage: "Edición administrativa documentada." })
+                    });
+                }
+
+                modalMaestro.hide();
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                Swal.fire({
+                    icon: 'success', title: '¡Guardado Exitoso!', text: 'La bóveda ha sido sincronizada.',
+                    timer: 1500, showConfirmButton: false
+                }).then(() => location.reload());
+
+            } catch (err) {
+                console.error("Error capturado:", err);
+                Swal.fire({ icon: 'error', title: 'Error al Guardar', text: err.message || "Ocurrió un problema de comunicación." });
+                const btn = document.getElementById('btnGuardarMaestro');
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-save me-2"></i> GUARDAR Y AUDITAR';
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        /**
+             * ============================================================================
+             * MÁQUINA DEL TIEMPO (BÚSQUEDA PROFUNDA Y REPORTERÍA)
+             * ============================================================================
+             */
+        let datosHistoricosDescarga = []; // Memoria global para el Excel histórico
+
+        function toggleSubBuscador() {
+            const panel = document.getElementById('panelSubBuscador');
+            if (panel.classList.contains('d-none')) {
+                panel.classList.remove('d-none');
+            } else {
+                panel.classList.add('d-none');
+                // Si cierra el panel, recargamos la página para volver al estado normal
+                location.reload();
+            }
+        }
+
+        async function ejecutarBusquedaProfunda() {
+            const anio = document.getElementById('filtroAnoDeep').value;
+            const mes = document.getElementById('filtroMesDeep').value;
+            const servicio = document.getElementById('filtroServicioDeep').value;
+            const estado = document.getElementById('filtroEstadoDeep').value;
+            const texto = document.getElementById('inputDeepSearch').value.trim();
+
+            Swal.fire({
+                title: "Consultando Bóveda...",
+                html: `Extrayendo y filtrando registros de <b>${anio}</b>...`,
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading() }
+            });
+
+            try {
+                // 1. Extraemos todo lo que coincida con el Año y el Texto (si hay texto)
+                const queryParam = texto ? encodeURIComponent(texto) : "";
+                const response = await fetch(`/api/v1/pedidos/historico/buscar?anio=${anio}&query=${queryParam}`);
+                if (!response.ok) throw new Error("Error en la extracción");
+
+                let pedidos = await response.json();
+
+                // 2. Filtrado en Memoria (JS Engine) por Mes, Servicio y Estado
+                pedidos = pedidos.filter(p => {
+                    let cumpleMes = true;
+                    if (mes !== "TODO" && p.fechaCreacion) {
+                        const mesPedido = p.fechaCreacion.split('-')[1]; // Formato yyyy-MM-dd...
+                        if (mesPedido !== mes) cumpleMes = false;
+                    }
+
+                    let cumpleServicio = true;
+                    if (servicio !== "TODO" && p.servicioSolicitado !== servicio) cumpleServicio = false;
+
+                    let cumpleEstado = true;
+                    if (estado !== "TODO" && p.estadoActual !== estado) cumpleEstado = false;
+
+                    return cumpleMes && cumpleServicio && cumpleEstado;
+                });
+
+                // Guardamos el resultado filtrado completo para el Excel
+                datosHistoricosDescarga = pedidos;
+                document.getElementById('btnExcelHistorico').disabled = pedidos.length === 0;
+
+                // 3. Cálculos de KPIs Históricos
+                let histExitosos = 0, histFallidos = 0, histRecaudado = 0;
+                pedidos.forEach(p => {
+                    if (p.estadoActual === 'ENTREGADO') {
+                        histExitosos++;
+                        if (!p.codigoSeguimiento.endsWith('-G')) histRecaudado += (p.precioFinal || 0);
+                    }
+                    if (p.estadoActual === 'RECHAZADA') histFallidos++;
+                });
+
+                document.getElementById('kpi-hist-exitosos').innerText = histExitosos;
+                document.getElementById('kpi-hist-rechazados').innerText = histFallidos;
+                document.getElementById('kpi-hist-recaudado').innerText = "$" + histRecaudado.toLocaleString('es-CL');
+
+                // 4. Renderizado Inteligente (Límite visual de 100)
+                const tbody = document.querySelector('#tablaHistorial tbody');
+                tbody.innerHTML = "";
+
+                if (pedidos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">No se encontraron registros para estos filtros.</td></tr>`;
+                } else {
+                    // Límite de seguridad visual
+                    const limite = Math.min(pedidos.length, 100);
+
+                    for (let i = 0; i < limite; i++) {
+                        const p = pedidos[i];
+                        const cli = p.cliente || {};
+                        const precioStr = p.precioFinal ? "$" + p.precioFinal.toLocaleString('es-CL') : "$0";
+
+                        const fila = `
+                        <tr class="align-middle border-start border-info border-4">
+                            <td class="ps-4 fw-bold text-info font-monospace tracking-col">${p.codigoSeguimiento}</td>
+                            <td>
+                                <div class="fw-bold text-white-bright">${cli.nombre || 'Desconocido'}</div>
+                                <div class="text-white-50 extra-small">${cli.rut || 'Sin RUT'} | ${cli.email || 'Sin correo'}</div>
+                            </td>
+                            <td class="small">${p.servicioSolicitado || '--'}</td>
+                            <td class="fw-bold text-warning precio-col">${precioStr}</td>
+                            <td><span class="status-badge estado-col">${p.estadoActual}</span></td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-edit-master" onclick="abrirEditorMaestro(${p.id})">
+                                    <i class="fas fa-user-edit me-1"></i> VER / EDITAR
+                                </button>
+                            </td>
+                        </tr>`;
+                        tbody.insertAdjacentHTML('beforeend', fila);
+                    }
+
+                    // Alerta visual si se superó el límite
+                    if (pedidos.length > 100) {
+                        const extras = pedidos.length - 100;
+                        tbody.insertAdjacentHTML('beforeend', `
+                        <tr class="bg-secondary bg-opacity-25">
+                            <td colspan="6" class="text-center py-3 text-warning fw-bold">
+                                <i class="fas fa-info-circle me-2"></i> Hay ${extras} registros más ocultos por rendimiento. Haz clic en "Descargar Reporte" para ver la lista completa en Excel.
+                            </td>
+                        </tr>
+                    `);
+                    }
+                }
+
+                Swal.close();
+
+            } catch (e) {
+                Swal.fire("Error de Conexión", "No se pudo extraer la información del servidor.", "error");
+            }
+        }
+
+        function exportarExcelHistorico() {
+            if (datosHistoricosDescarga.length === 0) return;
+
+            let csv = [];
+            // Cabeceras del Excel
+            csv.push('"TRACKING";"FECHA CREACION";"CLIENTE";"RUT";"EMAIL";"TELEFONO";"SERVICIO";"ESTADO";"PRECIO FINAL"');
+
+            datosHistoricosDescarga.forEach(p => {
+                const cli = p.cliente || {};
+                const fecha = p.fechaCreacion ? p.fechaCreacion.split('T')[0] : 'Sin fecha';
+                const precio = p.precioFinal || 0;
+
+                let row = [
+                    `"${p.codigoSeguimiento}"`,
+                    `"${fecha}"`,
+                    `"${(cli.nombre || '').replace(/"/g, '""')}"`,
+                    `"${cli.rut || ''}"`,
+                    `"${cli.email || ''}"`,
+                    `"${cli.telefono || ''}"`,
+                    `"${p.servicioSolicitado || ''}"`,
+                    `"${p.estadoActual || ''}"`,
+                    `"${precio}"`
+                ];
+                csv.push(row.join(';'));
+            });
+
+            const anio = document.getElementById('filtroAnoDeep').value;
+            const nombreArchivo = `Reporte_Legion3D_${anio}.csv`;
+
+            let csvFile = new Blob(["\uFEFF" + csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+            let downloadLink = document.createElement("a");
+            downloadLink.download = nombreArchivo;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+        }
+
+        /**
+         * ============================================================================
+         * GESTIÓN DE ELIMINACIÓN (BORRADO LÓGICO Y SOFT DELETE)
+         * ============================================================================
+         */
+        async function eliminarPedido(id) {
+            const result = await Swal.fire({
+                title: '⚠️ ¿Archivar Expediente?',
+                text: "El pedido desaparecerá del flujo activo, pero permanecerá oculto en la base de datos MySQL por razones contables.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#333',
+                confirmButtonText: 'Sí, Archivar y Ocultar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    // Ejecuta la petición DELETE al backend (Suele implementarse como archivado).
+                    const response = await fetch(`/api/v1/pedidos/${id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        Swal.fire("Archivado", "El expediente fue movido al archivo profundo.", "success").then(() => location.reload());
+                    } else {
+                        const errorDetalle = await response.text();
+                        Swal.fire("Rechazado", `Spring Boot rechazó el borrado.\nMOTIVO: ${errorDetalle}`, "error");
+                    }
+                } catch (e) {
+                    Swal.fire("Error de Red", "No se pudo conectar con el servidor.", "error");
+                }
+            }
+        }
+
+        /**
+         * ============================================================================
+         * MÓDULO DE GARANTÍAS: Clonación Segura
+         * ============================================================================
+         */
+        async function generarGarantia(id, tracking) {
+            const result = await Swal.fire({
+                title: '🛡️ ¿Generar Garantía?',
+                html: `Se creará un clon técnico del expediente <b>${tracking}</b>.<br><br>Se heredarán las medidas y materiales, pero el costo será de <b>$0</b> y el código tendrá el sufijo <b>-G</b>.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ffc107',
+                cancelButtonColor: '#333',
+                confirmButtonText: '<i class="fas fa-copy me-1 text-dark"></i> Sí, crear Garantía',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    Swal.fire({
+                        title: 'Clonando expediente...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    const response = await fetch(`/api/v1/pedidos/${id}/generar-garantia`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        Swal.fire("¡Garantía Creada!", data.mensaje, "success").then(() => location.reload());
+                    } else {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.error || "El servidor rechazó la clonación.");
+                    }
+                } catch (e) {
+                    Swal.fire("Error del Sistema", e.message, "error");
+                }
+            }
+        }
+
+        /**
+         * ============================================================================
+         * MOTOR DE EXPORTACIÓN Y REPORTERÍA (EXCEL/CSV)
+         * ============================================================================
+         */
+        function exportarExcel() {
+            let table = document.getElementById("tablaHistorial");
+            let rows = table.querySelectorAll("tr");
+            let csv = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                // Seguridad: Ignora los registros ocultos por filtros para coherencia en el reporte.
+                if (rows[i].style.display === "none") continue;
+
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+                for (let j = 0; j < cols.length - 1; j++) {
+                    // Sanitización de datos: Limpia saltos de línea para no corromper el CSV.
+                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " | ").replace(/"/g, '""');
+                    row.push('"' + data + '"');
+                }
+                csv.push(row.join(";")); // Separador de punto y coma (Estándar Excel en español).
+            }
+
+            // Inyección del marcador \uFEFF para forzar la codificación UTF-8 (Soporte de tildes).
+            let csvFile = new Blob(["\uFEFF" + csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+            let downloadLink = document.createElement("a");
+            downloadLink.download = `Reporte_Legion3D_${new Date().toLocaleDateString()}.csv`;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+        }
+
+        /**
+             * ============================================================================
+             * MOTOR DE BÚSQUEDA REACTIVA Y CÁLCULO DE FINANZAS (Frontend Engine)
+             * ============================================================================
+             */
+        function filtrarHistorial() {
+            const busqueda = document.getElementById('buscadorGlobal').value.toUpperCase();
+            const estadoFilter = document.getElementById('filtroEstado').value.toUpperCase();
+            const trs = document.getElementById('tablaHistorial').getElementsByTagName('tr');
+
+            for (let i = 1; i < trs.length; i++) {
+                const tdTexto = trs[i].textContent || trs[i].innerText;
+                const tdEstado = trs[i].querySelector('.estado-col') ? trs[i].querySelector('.estado-col').innerText.toUpperCase() : "";
+
+                // Condicional de visibilidad: Coincidencia de texto Y filtro de estado.
+                if (tdTexto.toUpperCase().indexOf(busqueda) > -1 && (estadoFilter === "" || tdEstado.indexOf(estadoFilter) > -1)) {
+                    trs[i].style.display = "";
+                } else {
+                    trs[i].style.display = "none";
+                }
+            }
+            calcularKPIs(); // Recálculo reactivo de las métricas visibles.
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('buscadorGlobal').value = "";
+            document.getElementById('filtroEstado').value = "";
+            filtrarHistorial();
+        }
+
+        function calcularKPIs() {
+            const filas = document.querySelectorAll('#tablaHistorial tbody tr');
+            let exitosos = 0;
+            let fallidos = 0;
+            let recaudado = 0;
+
+            filas.forEach(fila => {
+                // Ignora los registros ocultos por filtros para precisión en las métricas.
+                if (fila.style.display === "none") return;
+
+                const estadoElement = fila.querySelector('.estado-col');
+                const precioElement = fila.querySelector('.precio-col');
+                const trackingElement = fila.querySelector('.tracking-col');
+
+                if (estadoElement) {
+                    const estado = estadoElement.innerText.toUpperCase();
+                    if (estado === 'ENTREGADO') exitosos++;
+                    if (estado === 'RECHAZADA') fallidos++;
+                }
+
+                // Sumatoria financiera: Solo suma pedidos ENTREGADOS y excluye Garantías (-G)
+                if (trackingElement && precioElement && estadoElement) {
+                    const tracking = trackingElement.innerText.toUpperCase();
+                    const estado = estadoElement.innerText.toUpperCase();
+
+                    // CORRECCIÓN APLICADA: Solo suma si el estado es exactamente ENTREGADO
+                    if (estado === 'ENTREGADO' && !tracking.endsWith('-G')) {
+                        // Regex para extraer solo los dígitos del formato moneda ($14.000)
+                        const precio = parseFloat(precioElement.innerText.replace(/[^0-9]/g, "")) || 0;
+                        recaudado += precio;
+                    }
+                }
+            });
+
+            // Actualización en Interfaz (CLP Localizado)
+            document.getElementById('kpi-exitosos').innerText = exitosos;
+            document.getElementById('kpi-rechazados').innerText = fallidos;
+            document.getElementById('kpi-recaudado').innerText = "$" + recaudado.toLocaleString('es-CL');
+        }
+    </script>
+
+</body>
+
+</html>
