@@ -213,6 +213,73 @@ public class GoogleDriveService {
     }
 
     /**
+     * SUBIDA DE COMPROBANTE DE PAGO EN FLUJO (GENERACIÓN AUTOMÁTICA EN MEMORIA)
+     *
+     * Este método se usa cuando se autogenera un voucher txt en memoria.
+     */
+    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType, long size) throws IOException {
+        return subirComprobantePago(stream, fileName, contentType, size, CARPETA_PAGOS_NV);
+    }
+
+    /**
+     * SUBIDA DE COMPROBANTE DE PAGO EN FLUJO PARAMETRIZANDO LA CARPETA RAÍZ
+     */
+    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType, long size, String folderId) throws IOException {
+        asegurarDriveInicializado();
+        if (stream == null) {
+            throw new IOException("Stream vacío o nulo.");
+        }
+        String carpetaRaiz = (folderId != null && !folderId.isBlank()) ? folderId : CARPETA_PAGOS_NV;
+        String carpetaDestinoId = obtenerRutaFecha(carpetaRaiz);
+
+        File fileMetadata = new File();
+        fileMetadata.setName(fileName);
+        fileMetadata.setParents(Collections.singletonList(carpetaDestinoId));
+
+        InputStreamContent mediaContent = new InputStreamContent(contentType, stream);
+        mediaContent.setLength(size);
+
+        File uploadedFile = driveService.files()
+                .create(fileMetadata, mediaContent)
+                .setFields("id, webViewLink")
+                .execute();
+
+        return new DriveUploadResult(uploadedFile.getWebViewLink(), uploadedFile.getId());
+    }
+
+    /**
+     * BUSCAR ARCHIVO POR NOMBRE Y ID DE CARPETA PADRE
+     */
+    public String buscarArchivoPorNombreYPadre(String nombre, String parentId) throws IOException {
+        asegurarDriveInicializado();
+        String query = "name = '" + nombre.replace("'", "\\'") + "' and '" + parentId + "' in parents and trashed = false";
+        com.google.api.services.drive.model.FileList result = driveService.files().list()
+                .setQ(query)
+                .setFields("files(id)")
+                .execute();
+        if (result.getFiles() != null && !result.getFiles().isEmpty()) {
+            return result.getFiles().get(0).getId();
+        }
+        return null;
+    }
+
+    /**
+     * BUSCAR ARCHIVO POR NOMBRE DE MANERA GLOBAL
+     */
+    public String buscarArchivoPorNombre(String nombre) throws IOException {
+        asegurarDriveInicializado();
+        String query = "name = '" + nombre.replace("'", "\\'") + "' and trashed = false";
+        com.google.api.services.drive.model.FileList result = driveService.files().list()
+                .setQ(query)
+                .setFields("files(id)")
+                .execute();
+        if (result.getFiles() != null && !result.getFiles().isEmpty()) {
+            return result.getFiles().get(0).getId();
+        }
+        return null;
+    }
+
+    /**
      * Aplica permiso de lectura pública con enlace.
      *
      * Desactivado por razones de seguridad (los archivos deben permanecer privados).
@@ -327,9 +394,11 @@ public class GoogleDriveService {
             throw new IOException("El ID de la carpeta destino está vacío.");
         }
 
+        String carpetaDestinoId = obtenerRutaFecha(destinoFolderId);
+
         File fileMetadata = new File();
         fileMetadata.setName(nuevoNombre);
-        fileMetadata.setParents(Collections.singletonList(destinoFolderId));
+        fileMetadata.setParents(Collections.singletonList(carpetaDestinoId));
 
         File clonedFile = driveService.files()
                 .copy(fileId, fileMetadata)

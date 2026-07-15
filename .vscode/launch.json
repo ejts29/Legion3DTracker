@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-TrackerApplication<tracker>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "cl.ipss.legion3d.tracker.TrackerApplication",
+            "projectName": "tracker",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-DriveFireTest<tracker>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "cl.ipss.legion3d.tracker.DriveFireTest",
+            "projectName": "tracker",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

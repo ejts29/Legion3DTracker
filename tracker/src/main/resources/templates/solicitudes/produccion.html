@@ -312,7 +312,6 @@
                                     <th class="ps-4">Tracking</th>
                                     <th>Cliente / Contacto</th>
                                     <th>Material / Color</th>
-                                    <th>Recursos</th>
                                     <th>Método de Entrega Esperado</th>
                                     <th class="text-center pe-4">Acciones</th>
                                 </tr>
@@ -333,12 +332,6 @@
                                         <div class="fw-bold text-info"
                                             th:text="${(pedido?.detallesTecnicos?.materialSolicitado ?: 'N/A') + ' - ' + (pedido?.detallesTecnicos?.colorSolicitado ?: 'N/A')}">
                                             Material - Color</div>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-gold py-1"
-                                            th:onclick="abrirRecursos([[${pedido.id}]])">
-                                            <i class="fas fa-folder-open me-1"></i> VER
-                                        </button>
                                     </td>
                                     <td>
                                         <div class="text-warning small fw-bold"><i class="fas fa-truck me-1"></i> <span
@@ -663,7 +656,7 @@
                                 <button type="button" class="btn btn-outline-secondary"
                                     data-bs-dismiss="modal">Cancelar</button>
                                 <button type="button" class="btn btn-success px-4 fw-bold"
-                                    onclick="ejecutarMotorContable('manual')">
+                                    onclick="ejecutarMotorContable('manual', this)">
                                     <i class="fas fa-check-double me-2"></i> Confirmar Pago
                                 </button>
                             </div>
@@ -792,7 +785,7 @@
                                         data-bs-dismiss="modal">Cerrar</button>
                                     <button type="button" id="btnConfirmarAuditoria"
                                         class="btn btn-success px-4 fw-bold" disabled
-                                        onclick="ejecutarMotorContable('auditoria')">
+                                        onclick="ejecutarMotorContable('auditoria', this)">
                                         <i class="fas fa-check-double me-2"></i> VALIDAR Y LIQUIDAR
                                     </button>
                                 </div>
@@ -815,71 +808,53 @@
                     // CEREBRO MATEMÁTICO: MOTOR FINANCIERO L3D
                     // ==========================================
 
-                    // ---------------------------------------------------------
-                    // 1. EL PUENTE DEL SIDEBAR: Búsqueda manual de pedidos
-                    // ---------------------------------------------------------
-                    window.buscarPedidoParaPagoManual = async function () {
-                        const inputTracking = document.getElementById('sidebarTrackingInput');
-                        if (!inputTracking) return;
 
-                        const trackingValue = inputTracking.value.trim().toUpperCase();
-                        if (trackingValue === '') {
-                            Swal.fire({ icon: 'warning', text: 'Ingresa un código de seguimiento (Ej: LEG-XXXX).' });
-                            return;
-                        }
-
-                        Swal.fire({ title: 'Buscando Pedido...', didOpen: () => Swal.showLoading() });
-
-                        try {
-                            const response = await fetch(`/api/v1/pedidos/tracking/${trackingValue}`);
-                            if (!response.ok) throw new Error('Pedido no encontrado');
-
-                            const pedido = await response.json();
-                            Swal.close();
-
-                            if (pedido.precioFinal === 0 || trackingValue.endsWith('-G')) {
-                                Swal.fire({
-                                    icon: 'info',
-                                    title: 'Garantía Detectada',
-                                    text: 'Este pedido tiene costo $0. No requiere registro de pago, pásalo a producción directamente.'
-                                });
-                                return;
-                            }
-
-                            abrirModalPagoManualConfigurado(
-                                pedido.id,
-                                pedido.codigoSeguimiento,
-                                pedido.precioFinal
-                            );
-
-                        } catch (error) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'No se encontró el pedido o hubo un fallo de conexión.'
-                            });
-                        }
-                    };
 
                     // ---------------------------------------------------------
                     // 2. APERTURA DE MODALES CON PRECARGA INTELIGENTE
                     // ---------------------------------------------------------
-                    function abrirModalPagoManualConfigurado(id, tracking, netoTotal) {
-
+                    window.abrirModalPagoManualConfigurado = async function (id, tracking, netoTotal) {
                         document.getElementById('pagoManualId').value = id;
                         document.getElementById('pagoManualTracking').value = tracking;
                         document.getElementById('pagoManualTotalNeto').value = netoTotal || 0;
 
-                        const brutoEsperado = netoTotal ? Math.round(netoTotal * 1.19) : 0;
+                        const brutoTotal = netoTotal ? Math.round(netoTotal * 1.19) : 0;
+                        let saldoPendienteBrutoBase = brutoTotal;
 
-                        document.getElementById('pagoManualMonto').value = brutoEsperado;
+                        Swal.fire({
+                            title: 'Consultando estado contable...',
+                            allowOutsideClick: false,
+                            background: '#000',
+                            color: '#fff',
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        try {
+                            const resp = await fetch('/api/v1/pedidos/' + id);
+                            if (resp.ok) {
+                                const saldoNetoStr = resp.headers.get('X-Saldo-Pendiente');
+                                if (saldoNetoStr) {
+                                    saldoPendienteBrutoBase = Math.round(parseFloat(saldoNetoStr) * 1.19);
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Error al obtener saldo del pedido:", error);
+                        }
+
+                        Swal.close();
+
+                        const inputMonto = document.getElementById('pagoManualMonto');
+                        if (inputMonto) {
+                            inputMonto.setAttribute('data-saldo-base', saldoPendienteBrutoBase);
+                            inputMonto.value = saldoPendienteBrutoBase;
+                        }
 
                         ejecutarCalculosEnVivo('manual');
 
                         new bootstrap.Modal(
                             document.getElementById('modalPagoManualSmall')
                         ).show();
-                    }
+                    };
 
                     /*
                      * NUEVA GENERACIÓN:
@@ -1259,137 +1234,123 @@
                         );
                     }
 
-                    function ejecutarCalculosEnVivo(tipo) {
-                        const prefijo = (tipo === 'manual') ? 'pagoManual' : 'audit';
-                        const inputMonto = document.getElementById(prefijo + 'Monto');
-                        const inputConcepto = document.getElementById(prefijo + 'Concepto');
-                        const infoDiv = document.getElementById(prefijo + 'Info');
-                        const btnConfirmar = document.getElementById(tipo === 'manual' ? 'btnConfirmarPagoManual' : 'btnConfirmarAuditoria');
+                     function ejecutarCalculosEnVivo(tipo) {
+                         const prefijo = (tipo === 'manual') ? 'pagoManual' : 'audit';
+                         const inputMonto = document.getElementById(prefijo + 'Monto');
+                         const inputConcepto = document.getElementById(prefijo + 'Concepto');
+                         const infoDiv = document.getElementById(prefijo + 'Info');
+                         const btnConfirmar = document.getElementById(tipo === 'manual' ? 'btnConfirmarPagoManual' : 'btnConfirmarAuditoria');
 
-                        const montoIngresado = parseFloat(inputMonto.value) || 0;
-                        const netoTotal = parseFloat(document.getElementById(prefijo + 'TotalNeto').value) || 0;
-                        const brutoEsperado = Math.round(netoTotal * 1.19);
+                         if (!inputMonto) return;
 
-                        // Determinación de la base de cálculo (Saldo Restante vs Total Bruto)
-                        const saldoBase = (tipo === 'auditoria')
-                            ? (parseFloat(inputMonto.getAttribute('data-saldo-base')) || brutoEsperado)
-                            : brutoEsperado;
+                         // Sanitización robusta: Eliminamos cualquier carácter no numérico antes de parsear (soporte para CLP)
+                         const valorLimpioStr = inputMonto.value.toString().replace(/\D/g, '');
+                         const montoIngresado = parseFloat(valorLimpioStr) || 0;
 
-                        // Reset si no hay monto
-                        if (montoIngresado <= 0) {
-                            if (infoDiv) {
-                                infoDiv.innerHTML = 'Esperando ingreso de montos...';
-                                infoDiv.className = 'alert mb-0 text-center fw-bold small py-2 border-0 text-white-50';
-                            }
-                            if (inputConcepto) inputConcepto.value = '';
-                            if (btnConfirmar) btnConfirmar.disabled = true;
-                            return;
-                        }
+                         const netoTotal = parseFloat(document.getElementById(prefijo + 'TotalNeto').value) || 0;
+                         const brutoEsperado = Math.round(netoTotal * 1.19);
 
-                        const reajuste = (tipo === 'auditoria' && document.getElementById('auditReajuste'))
-                            ? (parseFloat(document.getElementById('auditReajuste').value) || 0)
-                            : 0;
+                         // SOLUCIÓN: Usamos data-saldo-base para manual también, evitando hardcodear brutoEsperado
+                         const saldoBase = parseFloat(inputMonto.getAttribute('data-saldo-base')) || brutoEsperado;
 
-                        const saldoRestanteFinal = saldoBase - (montoIngresado + reajuste);
-                        const porcentaje = Math.min(100, ((montoIngresado / saldoBase) * 100)).toFixed(1);
+                         // Reset si no hay monto
+                         if (montoIngresado <= 0) {
+                             if (infoDiv) {
+                                 infoDiv.innerHTML = 'Esperando ingreso de montos...';
+                                 infoDiv.className = 'alert mb-0 text-center fw-bold small py-2 border-0 text-white-50';
+                             }
+                             if (inputConcepto) inputConcepto.value = '';
+                             if (btnConfirmar) btnConfirmar.disabled = true;
+                             return;
+                         }
 
-                        // Actualización de Etiquetas de Saldo (Solo Auditoría)
-                        if (tipo === 'auditoria') {
-                            const labelSaldo = document.getElementById('labelAuditSaldoRestante');
-                            if (labelSaldo) {
-                                labelSaldo.innerText = `$${saldoRestanteFinal.toLocaleString('es-CL')}`;
-                                labelSaldo.className = (saldoRestanteFinal > 5) ? "fw-bold text-danger fs-5" : "fw-bold text-success fs-5";
-                            }
-                        }
+                         const reajuste = (tipo === 'auditoria' && document.getElementById('auditReajuste'))
+                             ? (parseFloat(document.getElementById('auditReajuste').value) || 0)
+                             : 0;
 
-                        // LÓGICA DE SEMÁFORO Y NOTAS INTELIGENTES (CONTEXT-AWARE)
-                        const isManual = inputConcepto && inputConcepto.getAttribute('data-manual-edit') === 'true';
-                        const context = document.getElementById('auditId').getAttribute('data-context') || 'manual';
-                        const pagosPrevios = parseInt(inputMonto.getAttribute('data-pagos-previos')) || 0;
+                         const saldoRestanteFinal = saldoBase - (montoIngresado + reajuste);
+                         const porcentaje = Math.min(100, ((montoIngresado / saldoBase) * 100)).toFixed(1);
 
-                        if (Math.abs(saldoRestanteFinal) <= 5) {
-                            // ESTADO TOTAL (alert-success)
-                            if (infoDiv) {
-                                infoDiv.innerHTML = '<i class="fas fa-check-circle me-1"></i> PAGO TOTAL (100%)';
-                                infoDiv.className = "alert alert-success py-1 small fw-bold mb-0 mt-2";
-                            }
-                            if (inputConcepto && !isManual) {
-                                inputConcepto.value = (context === 'bandeja3') ? 'Comprobante de Pago Final' : 'Pago Final / Liquidación (100%)';
-                                if (context === 'manual') inputConcepto.value = 'Liquidación (100%)';
-                            }
-                            if (btnConfirmar) btnConfirmar.disabled = false;
+                         // Actualización de Etiquetas de Saldo (Solo Auditoría)
+                         if (tipo === 'auditoria') {
+                             const labelSaldo = document.getElementById('labelAuditSaldoRestante');
+                             if (labelSaldo) {
+                                 labelSaldo.innerText = `$${saldoRestanteFinal.toLocaleString('es-CL')}`;
+                                 labelSaldo.className = (saldoRestanteFinal > 5) ? "fw-bold text-danger fs-5" : "fw-bold text-success fs-5";
+                             }
+                         }
 
-                        } else if (saldoRestanteFinal > 5) {
-                            // ESTADO ABONO (alert-warning)
-                            if (infoDiv) {
-                                infoDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ABONO DEL ${porcentaje}% (Falta: $${saldoRestanteFinal.toLocaleString('es-CL')})`;
-                                infoDiv.className = "alert alert-warning py-1 small fw-bold mb-0 mt-2 text-dark";
-                            }
-                            if (inputConcepto && !isManual) {
-                                if (context === 'bandeja1') inputConcepto.value = 'Validación de Abono';
-                                else if (pagosPrevios === 0) inputConcepto.value = 'Comprobante de Abono Inicial';
-                                else inputConcepto.value = `${porcentaje}% de abono`;
+                         // LÓGICA DE SEMÁFORO Y NOTAS INTELIGENTES (CONTEXT-AWARE)
+                         const isManual = inputConcepto && inputConcepto.getAttribute('data-manual-edit') === 'true';
+                         const context = (tipo === 'auditoria') 
+                             ? (document.getElementById('auditId').getAttribute('data-context') || 'audit')
+                             : 'manual';
+                         const pagosPrevios = (tipo === 'auditoria')
+                             ? (parseInt(inputMonto.getAttribute('data-pagos-previos')) || 0)
+                             : 1;
 
-                                if (context === 'manual' && inputConcepto.value.includes('abono')) inputConcepto.value = 'Abono';
-                            }
+                         if (Math.abs(saldoRestanteFinal) <= 5) {
+                             if (infoDiv) {
+                                 infoDiv.innerHTML = '<i class="fas fa-check-circle me-1"></i> PAGO TOTAL (100%)';
+                                 infoDiv.className = "alert alert-success py-1 small fw-bold mb-0 mt-2";
+                             }
+                             if (inputConcepto && !isManual) {
+                                 inputConcepto.value = (context === 'bandeja3') ? 'Comprobante de Pago Final' : 'Pago Final / Liquidación (100%)';
+                                 if (context === 'manual') inputConcepto.value = 'Liquidación Final (100%)';
+                             }
+                             if (btnConfirmar) btnConfirmar.disabled = false;
 
-                            if (btnConfirmar) {
-                                const bypass = document.getElementById('bypassSaldoCheck');
-                                btnConfirmar.disabled = (!bypass || !bypass.checked);
-                            }
-                        } else {
-                            // ESTADO EXCEDENTE (alert-info)
-                            if (infoDiv) {
-                                infoDiv.innerHTML = `<i class="fas fa-info-circle me-1"></i> EXCEDENTE: +$${Math.abs(saldoRestanteFinal).toLocaleString('es-CL')}`;
-                                infoDiv.className = "alert alert-info py-1 small fw-bold mb-0 mt-2";
-                            }
-                            if (inputConcepto && !isManual) inputConcepto.value = `${porcentaje}% de abono (Excedente)`;
-                            if (btnConfirmar) btnConfirmar.disabled = false;
-                        }
-                    }
+                         } else if (saldoRestanteFinal > 5) {
+                             if (infoDiv) {
+                                 infoDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ABONO DEL ${porcentaje}% (Falta: $${saldoRestanteFinal.toLocaleString('es-CL')})`;
+                                 infoDiv.className = "alert alert-warning py-1 small fw-bold mb-0 mt-2 text-dark";
+                             }
+                             if (inputConcepto && !isManual) {
+                                 if (context === 'bandeja1') inputConcepto.value = 'Validación de Abono';
+                                 else if (pagosPrevios === 0) inputConcepto.value = 'Comprobante de Abono Inicial';
+                                 else inputConcepto.value = `Abono Parcial (${porcentaje}%)`;
+
+                                 if (context === 'manual') inputConcepto.value = 'Abono Parcial Presencial';
+                             }
+
+                             if (btnConfirmar) {
+                                 if (tipo === 'manual') {
+                                     btnConfirmar.disabled = false;
+                                 } else {
+                                     const bypass = document.getElementById('bypassSaldoCheck');
+                                     btnConfirmar.disabled = (!bypass || !bypass.checked);
+                                 }
+                             }
+                         } else {
+                             if (infoDiv) {
+                                 infoDiv.innerHTML = `<i class="fas fa-info-circle me-1"></i> EXCEDENTE: +$${Math.abs(saldoRestanteFinal).toLocaleString('es-CL')}`;
+                                 infoDiv.className = "alert alert-info py-1 small fw-bold mb-0 mt-2";
+                             }
+                             if (inputConcepto && !isManual) inputConcepto.value = `Abono Excedente (${porcentaje}%)`;
+                             if (btnConfirmar) btnConfirmar.disabled = false;
+                         }
+                     }
                     // ---------------------------------------------------------
                     // 5. MOTOR CONTABLE: CONFIRMACIÓN, PERSISTENCIA Y DESCARGA SEGURA
                     // ---------------------------------------------------------
-                    window.ejecutarMotorContable = async function (tipo) {
+                    window.ejecutarMotorContable = async function (tipo, btn) {
+                        const prefijo = tipo === 'manual' ? 'pagoManual' : 'audit';
 
-                        const prefijo = tipo === 'manual'
-                            ? 'pagoManual'
-                            : 'audit';
+                        const id = document.getElementById(prefijo + 'Id').value;
+                        const montoInput = document.getElementById(prefijo + 'Monto');
+                        const metodoInput = document.getElementById(prefijo + 'Metodo');
+                        const conceptoInput = document.getElementById(prefijo + 'Concepto');
+                        const fileInput = document.getElementById(prefijo + 'File');
 
-                        const id =
-                            document.getElementById(prefijo + 'Id').value;
-
-                        const montoBruto =
-                            parseFloat(
-                                document.getElementById(prefijo + 'Monto').value
-                            ) || 0;
-
-                        const totalNeto =
-                            parseFloat(
-                                document.getElementById(prefijo + 'TotalNeto').value
-                            ) || 0;
-
-                        const metodoInput =
-                            document.getElementById(prefijo + 'Metodo');
-
-                        const conceptoInput =
-                            document.getElementById(prefijo + 'Concepto');
-
-                        const fileInput =
-                            document.getElementById(prefijo + 'File');
-
-                        const metodo =
-                            metodoInput
-                                ? metodoInput.value
-                                : 'Transferencia Bancaria';
-
-                        const concepto =
-                            conceptoInput
-                                ? conceptoInput.value
-                                : 'Pago Manual Directo';
+                        // Sanitización CLP previa al envío
+                        const montoBrutoStr = montoInput ? montoInput.value.toString().replace(/\D/g, '') : '0';
+                        const montoBruto = parseFloat(montoBrutoStr) || 0;
+                        
+                        const totalNeto = parseFloat(document.getElementById(prefijo + 'TotalNeto').value) || 0;
+                        const metodo = metodoInput ? metodoInput.value : 'Transferencia Bancaria';
+                        const concepto = conceptoInput ? conceptoInput.value : 'Pago Manual Directo';
 
                         if (montoBruto <= 0) {
-
                             Swal.fire({
                                 icon: 'warning',
                                 title: 'Monto requerido',
@@ -1398,33 +1359,17 @@
                                 background: '#000',
                                 color: '#fff'
                             });
-
                             return;
                         }
 
-                        const brutoEsperado =
-                            Math.round(totalNeto * 1.19);
+                        const brutoEsperado = Math.round(totalNeto * 1.19);
+                        const saldoBase = parseFloat(montoInput.getAttribute('data-saldo-base')) || brutoEsperado;
+                        const porcentaje = Math.round((montoBruto / saldoBase) * 100);
 
-                        const porcentaje =
-                            brutoEsperado > 0
-                                ? Math.round((montoBruto / brutoEsperado) * 100)
-                                : 0;
-
-                        /*
-                         * Advertencia de pago parcial.
-                         * Se mantiene principalmente para el flujo manual.
-                         */
                         if (porcentaje < 99 && tipo === 'manual') {
-
                             const confirmacion = await Swal.fire({
                                 title: 'Atención: Pago Parcial',
-                                html: `
-                Monto:
-                <b>$${montoBruto.toLocaleString('es-CL')}</b>
-                (Abono del ${porcentaje}%).
-                <br>
-                ¿Confirmas esta operación?
-            `,
+                                html: `Monto: <b>$${montoBruto.toLocaleString('es-CL')}</b> (Abono del ${porcentaje}% del saldo restante).<br>¿Confirmas esta operación?`,
                                 icon: 'warning',
                                 showCancelButton: true,
                                 confirmButtonText: 'SÍ, REGISTRAR ABONO',
@@ -1439,21 +1384,12 @@
                             }
                         }
 
-                        /*
-                         * Conversión bruto -> neto.
-                         *
-                         * IMPORTANTE:
-                         * - Si hay archivo:
-                         *   el backend /pago-manual recibe NETO.
-                         * - El backend es la verdad financiera.
-                         */
-                        const montoNetoAGuardar =
-                            Math.round(montoBruto / 1.19);
+                        // PREVENCIÓN DE DOBLE ENVÍO: Deshabilita el botón pulsado
+                        if (btn) btn.disabled = true;
 
-                        const hayArchivo =
-                            fileInput &&
-                            fileInput.files &&
-                            fileInput.files.length > 0;
+                        // Conversión bruta a neta antes de enviar
+                        const montoNetoAGuardar = Math.round(montoBruto / 1.19);
+                        const hayArchivo = fileInput && fileInput.files && fileInput.files.length > 0;
 
                         Swal.fire({
                             title: 'Procesando...',
@@ -1465,194 +1401,61 @@
                         });
 
                         try {
-
-                            // -------------------------------------------------
-                            // FORM DATA MULTIPART
-                            // -------------------------------------------------
                             const formData = new FormData();
-
                             formData.append('monto', montoNetoAGuardar);
                             formData.append('metodoPago', metodo);
                             formData.append('concepto', concepto);
 
                             if (hayArchivo) {
-                                formData.append(
-                                    'evidencia',
-                                    fileInput.files[0]
-                                );
+                                formData.append('evidencia', fileInput.files[0]);
                             }
 
-                            // -------------------------------------------------
-                            // ENDPOINT UNIFICADO
-                            // -------------------------------------------------
-                            const url =
-                                `/api/v1/pedidos/${id}/pago-manual`;
-
-                            const opts = {
+                            const url = `/api/v1/pedidos/${id}/pago-manual`;
+                            const resp = await fetch(url, {
                                 method: 'POST',
                                 body: formData
-                            };
-
-                            const resp = await fetch(url, opts);
-
-                            if (!resp.ok) {
-
+                            });                            if (!resp.ok) {
                                 const errorTexto = await resp.text();
-
-                                throw new Error(
-                                    errorTexto || 'Fallo en la base de datos'
-                                );
+                                throw new Error(errorTexto || 'Fallo en la base de datos');
                             }
 
-                            /*
-                             * Intentamos obtener respuesta JSON enriquecida
-                             * con evidencias múltiples.
-                             */
-                            let dataRespuesta = null;
+                            const data = await resp.json();
+                            const requiereDescarga = data.requiereDescarga === true;
 
-                            try {
-                                dataRespuesta = await resp.json();
-                            } catch (_) {
-                                dataRespuesta = null;
-                            }
-
-                            // -------------------------------------------------
-                            // DESBLOQUEO VISUAL EN BANDEJA 3
-                            // -------------------------------------------------
-                            if (tipo === 'auditoria') {
-
-                                const btnDespachoEnTabla =
-                                    document.getElementById(
-                                        'btnDespacho-' + id
-                                    );
-
-                                const reajuste =
-                                    parseFloat(
-                                        document.getElementById('auditReajuste')
-                                            ? document.getElementById('auditReajuste').value
-                                            : 0
-                                    ) || 0;
-
-                                const bypass =
-                                    document.getElementById('bypassSaldoCheck')
-                                        ? document.getElementById('bypassSaldoCheck').checked
-                                        : false;
-
-                                if (
-                                    Math.abs(
-                                        brutoEsperado - (montoBruto + reajuste)
-                                    ) <= 5
-                                    || bypass
-                                ) {
-
-                                    if (btnDespachoEnTabla) {
-
-                                        btnDespachoEnTabla.disabled = false;
-
-                                        btnDespachoEnTabla.className =
-                                            "btn btn-sm btn-action-prod btn-action-blue fw-bold";
-
-                                        btnDespachoEnTabla.innerHTML =
-                                            '<i class="fas fa-paper-plane me-1"></i> Despachar';
-                                    }
-                                }
-                            }
-
-                            /*
-                             * REFRESCO VISUAL DE EVIDENCIAS
-                             * SIN RECARGAR TODAVÍA
-                             */
-                            if (
-                                dataRespuesta &&
-                                dataRespuesta.evidencias &&
-                                Array.isArray(dataRespuesta.evidencias)
-                            ) {
-
-                                renderizarEvidenciasAuditoria(
-                                    dataRespuesta.evidencias,
-                                    id
-                                );
-                            }
-
-                            /*
-                             * DESCARGA SEGURA:
-                             * - Primero Luis presiona ENTENDIDO
-                             * - Luego descargamos
-                             * - Después recién recargamos
-                             */
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Contabilizado',
-                                html: tipo === 'auditoria'
-                                    ? `
-                    El pago fue registrado correctamente.
-                    <br><br>
-                    Al presionar <b>ENTENDIDO</b>:
-                    <br>
-                    1. Se descargará el comprobante
-                    <br>
-                    2. Luego se actualizará el Dashboard
-                `
-                                    : `
-                    El pago fue registrado correctamente.
-                `,
+                                html: requiereDescarga
+                                    ? `El pago fue registrado correctamente.<br><br>Al presionar <b>ENTENDIDO</b>:<br>1. Se descargará el comprobante<br>2. Luego se actualizará el Dashboard`
+                                    : `El pago fue registrado correctamente.`,
                                 confirmButtonText: 'ENTENDIDO',
                                 confirmButtonColor: '#10b981',
                                 background: '#000',
                                 color: '#fff'
                             }).then(async () => {
-
-                                /*
-                                 * SOLO AUDITORÍA
-                                 */
-                                if (tipo === 'auditoria') {
-
+                                if (requiereDescarga) {
                                     try {
-
-                                        /*
-                                         * NUEVO ENDPOINT:
-                                         * /descargar-pago
-                                         *
-                                         * Descarga el último comprobante
-                                         * o el más reciente registrado.
-                                         */
-                                        const iframe =
-                                            document.createElement('iframe');
-
+                                        // Inyección de iframe temporal para forzar la descarga sin redirigir la pestaña del navegador
+                                        const iframe = document.createElement('iframe');
                                         iframe.style.display = 'none';
-
-                                        iframe.src =
-                                            `/api/v1/pedidos/${id}/descargar-pago`;
-
+                                        iframe.src = `/api/v1/pedidos/${id}/descargar-pago`;
                                         document.body.appendChild(iframe);
 
-                                        /*
-                                         * Esperamos suficiente tiempo
-                                         * para que el navegador dispare
-                                         * realmente la descarga.
-                                         */
                                         setTimeout(() => {
                                             location.reload();
-                                        }, 2500);
-
+                                        }, 5000);
                                     } catch (e) {
-
-                                        console.error(
-                                            'Error iniciando descarga:',
-                                            e
-                                        );
-
+                                        console.error('Error al iniciar la descarga del comprobante:', e);
                                         location.reload();
                                     }
-
                                 } else {
-
                                     location.reload();
                                 }
                             });
 
                         } catch (e) {
-
+                            // Re-habilitamos el botón en caso de error para reintento
+                            if (btn) btn.disabled = false;
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error al registrar pago',
@@ -2226,23 +2029,43 @@
                             );
 
                             if (!resp.ok) {
-
                                 throw new Error(
                                     'Fallo al registrar el despacho en la base de datos.'
                                 );
                             }
 
+                            const data = await resp.json();
+                            const requiereDescarga = (metodo !== 'RETIRO') && (data.voucherDriveLink);
+
                             Swal.fire({
                                 icon: 'success',
                                 title: '¡Despacho Confirmado!',
-                                text: `
-                El ciclo se ha cerrado con éxito.
-                El cliente lo verá en su portal.
-            `,
-                                timer: 2500,
+                                html: requiereDescarga
+                                    ? `El ciclo se ha cerrado con éxito.<br><br>Al presionar <b>ENTENDIDO</b>:<br>1. Se descargará el comprobante de despacho.<br>2. Luego se actualizará la página.`
+                                    : `El ciclo se ha cerrado con éxito. El cliente lo verá en su portal.`,
+                                confirmButtonText: 'ENTENDIDO',
+                                confirmButtonColor: '#10b981',
                                 background: '#000',
                                 color: '#fff'
-                            }).then(() => location.reload());
+                            }).then(() => {
+                                if (requiereDescarga) {
+                                    try {
+                                        const iframe = document.createElement('iframe');
+                                        iframe.style.display = 'none';
+                                        iframe.src = `/api/v1/pedidos/${id}/descargar-despacho`;
+                                        document.body.appendChild(iframe);
+
+                                        setTimeout(() => {
+                                            location.reload();
+                                        }, 5000);
+                                    } catch (e) {
+                                        console.error('Error al iniciar la descarga:', e);
+                                        location.reload();
+                                    }
+                                } else {
+                                    location.reload();
+                                }
+                            });
 
                         } catch (error) {
 

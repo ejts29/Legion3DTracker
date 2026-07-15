@@ -2,6 +2,7 @@ package cl.ipss.legion3d.tracker.backend.servicios;
 
 import cl.ipss.legion3d.tracker.backend.entidades.Pago;
 import cl.ipss.legion3d.tracker.backend.entidades.Pedido;
+import cl.ipss.legion3d.tracker.backend.entidades.OrigenPago;
 import cl.ipss.legion3d.tracker.backend.repositorios.PagoRepository;
 import cl.ipss.legion3d.tracker.backend.repositorios.PedidoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +69,7 @@ public class PagoService {
                 .driveFileId(uploadResult.getFileId())
                 .referenciaComprobante(uploadResult.getWebViewLink())
                 .concepto("🏦 Comprobante Auditado (Bruto: $" + montoBruto + ")")
+                .origenPago(OrigenPago.CLIENTE_WEB)
                 .build();
 
         return pagoRepository.save(nuevoPago);
@@ -151,9 +153,51 @@ public class PagoService {
                         pedido.getCodigoSeguimiento(), correlativo);
                 nuevoPago.setReferenciaComprobante(result.getWebViewLink());
                 nuevoPago.setDriveFileId(result.getFileId());
+                nuevoPago.setOrigenPago(OrigenPago.ADMIN_MANUAL);
             } catch (java.io.IOException e) {
                 // Abortamos la transacción si falla la subida a la nube
                 throw new RuntimeException("Error de conexión con Google Drive al subir la foto: " + e.getMessage());
+            }
+        } else if (pedido.getLinkComprobantePago() != null && !pedido.getLinkComprobantePago().isBlank()) {
+            // El cliente ya subió un comprobante real por la web. Lo asociamos y no generamos voucher plano
+            nuevoPago.setReferenciaComprobante(pedido.getLinkComprobantePago());
+            nuevoPago.setDriveFileId(extraerIdDeDrive(pedido.getLinkComprobantePago()));
+            nuevoPago.setOrigenPago(OrigenPago.CLIENTE_WEB);
+            
+            // Limpiamos el link temporal del pedido para liberar futuras transacciones del mismo expediente
+            pedido.setLinkComprobantePago(null);
+            pedidoRepository.save(pedido);
+        } else {
+            // Generación de Voucher Digital Automático (Texto Plano) con Nomenclatura Correlativa
+            try {
+                int numeroPago = (int) pagoRepository.countByPedidoId(pedidoId) + 1;
+                
+                StringBuilder sb = new StringBuilder();
+                sb.append("==================================================\n");
+                sb.append("       VOUCHER DE PAGO MANUAL N° ").append(numeroPago).append(" - LEGION 3D\n");
+                sb.append("==================================================\n");
+                sb.append("Código de Seguimiento : ").append(pedido.getCodigoSeguimiento()).append("\n");
+                sb.append("Número de Pago        : ").append(numeroPago).append("\n");
+                sb.append("Monto Neto            : $").append(String.format(new java.util.Locale("es", "CL"), "%,.0f", monto)).append(" CLP\n");
+                sb.append("Monto Bruto (con IVA) : $").append(String.format(new java.util.Locale("es", "CL"), "%,.0f", (double) Math.round(monto * 1.19))).append(" CLP\n");
+                sb.append("Método de Pago        : ").append(metodoPago).append("\n");
+                sb.append("Concepto / Nota       : ").append(conceptoFinal).append("\n");
+                sb.append("Fecha y Hora          : ").append(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n");
+                sb.append("==================================================\n");
+
+                String voucherText = sb.toString();
+                byte[] bytes = voucherText.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                
+                try (java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(bytes)) {
+                    String fileName = "voucher_pago_" + numeroPago + "_" + pedido.getCodigoSeguimiento() + ".txt";
+                    GoogleDriveService.DriveUploadResult result = googleDriveService.subirComprobantePago(
+                            bis, fileName, "text/plain", bytes.length);
+                    nuevoPago.setReferenciaComprobante(result.getWebViewLink());
+                    nuevoPago.setDriveFileId(result.getFileId());
+                    nuevoPago.setOrigenPago(OrigenPago.ADMIN_MANUAL);
+                }
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("Error de conexión con Google Drive al subir el voucher automático: " + e.getMessage());
             }
         }
 
@@ -177,5 +221,13 @@ public class PagoService {
         if (saldoPendiente > 0) {
             registrarPagoManual(pedidoId, saldoPendiente, "LIQUIDACION_ADMIN", "⚖️ " + justificacion);
         }
+    }
+
+    private String extraerIdDeDrive(String link) {
+        if (link == null)
+            return null;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:/d/|id=|folders/)([\\w-]+)");
+        java.util.regex.Matcher matcher = pattern.matcher(link);
+        return matcher.find() ? matcher.group(1) : null;
     }
 }

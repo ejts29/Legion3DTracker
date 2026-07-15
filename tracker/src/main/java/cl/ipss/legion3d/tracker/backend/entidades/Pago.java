@@ -41,4 +41,8 @@ public class Pago {
     private String driveFileId;
 
     private String concepto;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen_pago")
+    private OrigenPago origenPago;
 }

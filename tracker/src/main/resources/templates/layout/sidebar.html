@@ -113,6 +113,109 @@ input[type=number] {
                 </div>
             </div>
 
+            <!-- Sección de herramientas de desarrollo, con enlaces a recursos útiles para el equipo técnico. Incluye acceso a documentación, herramientas de IA, plataformas de administración y recursos de infraestructura. Cada enlace está acompañado de un ícono representativo para facilitar la identificación visual. Esta sección está diseñada para ser fácilmente accesible desde el sidebar, proporcionando un punto centralizado para acceder a las herramientas necesarias durante el desarrollo y mantenimiento del sistema Tracker. -->
+       <details class="mx-3 mt-4 p-3 border border-secondary rounded bg-black text-start">
+            <summary class="fw-bold d-flex justify-content-between align-items-center" style="font-size: 0.7rem; color: #F2C05F; cursor: pointer; list-style: none;">
+                <span><i class="fas fa-toolbox me-1"></i> HERRAMIENTAS DEV</span>
+                <i class="fas fa-chevron-down" style="font-size: 0.55rem;"></i>
+            </summary>
+
+            <div class="mt-3" style="font-size: 0.7rem; color: #c4c2c2; line-height: 1.5;">
+                <div class="text-muted fw-bold mb-1" style="font-size: 0.65rem; border-bottom: 1px solid #333; padding-bottom: 2px;">DOCS & IA</div>
+                <!-- Enlace de IA Diseñado para Consultar Está diseñada Para que el administrador Pueda hacer consulta relacionada Con el sistema Como opera ¿Qué significa algún error O explicación técnica, etc. Es un recurso de apoyo para resolver dudas técnicas o de funcionamiento del sistema Tracker. -->
+                <a href="https://gemini.google.com/notebook/d59b6a95-3026-45c5-a8a9-bae58664b857" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-robot me-1 text-info"></i> Asistente Gemini IA(Consultas Tecnicas)</a>
+                <!-- Enlace a NotebookLM: Este recurso es un espacio de documentación y manuales relacionados con el sistema Tracker. Aquí se pueden encontrar guías, procedimientos, y documentación técnica que puede ser útil tanto para el equipo de desarrollo como para los administradores del sistema Permite resolver dudas técnicas y de funcionamiento. -->
+                <a href="https://notebooklm.google.com/notebook/d59b6a95-3026-45c5-a8a9-bae58664b857" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-book me-1 text-primary"></i> NotebookLM (Guias-usuarios con IA )</a>
+                <!-- Enlace a Tutoriales en Video: Este recurso es una colección de tutoriales en video relacionados con el sistema Tracker. Puede incluir guías paso a paso, demostraciones de funcionalidades, y explicaciones visuales que faciliten la comprensión y el uso del sistema. Es especialmente útil para aquellos que prefieren aprender a través de contenido visual o para resolver dudas específicas sobre cómo realizar ciertas acciones dentro del sistema. -->
+                <a href="https://www.youtube.com/playlist?list=PLmq5TNUTfwhGKywY1Bwk1KZmZUnx40czf" target="_blank" class="d-block text-white text-decoration-none mb-2 custom-hover-link"><i class="fab fa-youtube me-1 text-danger"></i> Tutoriales en Video</a>
+
+                <div class="text-muted fw-bold mb-1 mt-3" style="font-size: 0.65rem; border-bottom: 1px solid #333; padding-bottom: 2px;">ADMINISTRACIÓN</div>
+                <!-- Enlace a Gmail Legión 3D: Este enlace proporciona acceso directo a la cuenta de correo electrónico de Legión 3D en Gmail. Es un recurso esencial para la administración del sistema Tracker, ya que permite gestionar las comunicaciones relacionadas con los pedidos, consultas de clientes, y cualquier otra correspondencia importante. Al hacer clic en este enlace, el administrador puede revisar y responder correos electrónicos de manera eficiente, asegurando una comunicación fluida con los clientes y otros stakeholders. -->
+                <a href="https://mail.google.com/mail/u/0/?tab=rm&ogbl#inbox" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-envelope me-1 text-danger"></i> Gmail Legión 3D</a>
+
+                <!-- Enlace a Google Drive: Este recurso proporciona acceso directo a las carpetas de Google Drive donde se almacenan los archivos relacionados con el sistema Tracker. Aquí se pueden encontrar los archivos Que el cliente Sube desde Cualquiera De los formularios También encontrarás Los archivos de pagos Los archivos de envío Y los archivos temporales  Como el archivo inicial de WordPress Si es que hay Como los archivos técnicos si es que el cliente lo suyo Subió Pero esto se implementará Para una versión dos Mientras tanto El administrador Tendrá que Subirlo de manera manual. -->
+                <a href="https://drive.google.com/drive/folders/1jV87Zz85aTCdS45yoZ1UwkGaghIgGPyx" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fab fa-google-drive me-1 text-success"></i> Drive (Legion3D_Backups_Nube)</a>
+
+                <!-- Enlace a Google Drive (Documentacion_Legion3dtracker): Este enlace proporciona acceso a una segunda carpeta de Google Drive, Aquí se encontrará Toda la documentación escrita De manera Técnica Y manuales de usuario Para la posterior lectura del administrador. -->
+                <a href="https://drive.google.com/drive/folders/134cx7fJMBvWsWAD6ILwTDE2ZwyrYMedK" target="_blank" class="d-block text-white text-decoration-none mb-2 custom-hover-link"><i class="fab fa-google-drive me-1 text-success"></i> Drive (Documentacion_Legion3dtracker)</a>
+
+                <div class="text-muted fw-bold mb-1 mt-3" style="font-size: 0.65rem; border-bottom: 1px solid #333; padding-bottom: 2px;">INFRAESTRUCTURA (DEV)</div>
+                <!-- Enlace a Swagger UI: Este recurso proporciona acceso directo a la interfaz de Swagger UI, que es una herramienta de documentación interactiva para APIs. Aquí se pueden explorar y probar las diferentes endpoints de la API del sistema Tracker, lo que facilita el desarrollo y la depuración de la integración con otros sistemas o servicios. Es especialmente útil para los desarrolladores que necesitan entender cómo funciona la API y cómo interactuar con ella de manera efectiva. -->
+                <a th:href="@{/swagger-ui/index.html}" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-code me-1 text-warning"></i> API Docs (Swagger)</a>
+
+                <!-- Enlace a GitHub: Este enlace proporciona acceso directo al repositorio de código fuente del sistema Tracker en GitHub. Es un recurso esencial para los desarrolladores, ya que permite revisar el código, colaborar en el desarrollo, y gestionar las versiones del proyecto. Al hacer clic en este enlace, los desarrolladores pueden acceder a la última versión del código, revisar los commits, y contribuir con mejoras o correcciones según sea necesario. -->
+                <a href="https://github.com/Legion3DTracker" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fab fa-github me-1 text-secondary"></i> Código en GitHub</a>
+
+                <!-- Enlace a Aiven: Este recurso proporciona acceso directo a la plataforma de gestión de bases de datos Aiven, donde se alojan las bases de datos utilizadas por el sistema Tracker. Aquí se pueden gestionar las instancias de base de datos, revisar el rendimiento, y realizar tareas administrativas relacionadas con la base de datos. Es especialmente útil para los administradores del sistema que necesitan asegurarse de que las bases de datos estén funcionando correctamente y optimizadas para el rendimiento. -->
+                <a href="https://console.aiven.io/account/a5b28adca9fb/home" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-database me-1 text-info"></i> Base de Datos (Aiven)</a>
+
+                <!-- Enlace a Render: Este enlace proporciona acceso directo al panel de control de Render, que es la plataforma de alojamiento donde se despliega el sistema Tracker. Aquí se pueden gestionar los servicios, revisar los logs, y realizar tareas administrativas relacionadas con el servidor. Es especialmente útil para los administradores del sistema que necesitan asegurarse de que el servidor esté funcionando correctamente, monitorear el rendimiento, y realizar ajustes según sea necesario para garantizar una experiencia óptima para los usuarios del sistema Tracker. -->
+                <a href="https://dashboard.render.com/web/new" target="_blank" class="d-block text-white text-decoration-none mb-1 custom-hover-link"><i class="fas fa-server me-1 text-primary"></i> Servidor (Render)</a>
+            </div>
+        </details>
+
+        <div class="mx-3 mt-4 p-3 border border-secondary rounded bg-black text-start">
+    <details>
+        <summary class="fw-bold d-flex justify-content-between align-items-center" style="font-size: 0.65rem; color: #F2C05F; cursor: pointer; list-style: none;">
+            <span><i class="fas fa-info-circle me-1"></i> GUÍA DE ESTADOS</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.5rem;"></i>
+        </summary>
+        
+        <div class="mt-3" style="font-size: 0.65rem; color: #c4c2c2; line-height: 1.4;">
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">NUEVA</span>
+                Ingreso desde formulario WordPress (Cliente). Aparece en la sección de Solicitudes para aprobar o rechazar (Admin).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">PENDIENTE_TECNICOS</span>
+                Solicitud aprobada (Admin). En espera de que se completen datos técnicos, medidas o se suban archivos (Cliente).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">RECHAZADA</span>
+                El proyecto ha sido descartado por no cumplir los requisitos técnicos o por decisión interna (Admin).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">EN_EVALUACION</span>
+                El cliente ya envió la información técnica solicitada. La viabilidad del diseño está en revisión (Admin).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">A_COTIZACION</span>
+                Evaluación técnica aprobada exitosamente. El pedido está listo para que se le asigne un precio (Admin).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">PRESUPUESTADO</span>
+                Precio asignado y cotización enviada por correo. A la espera de confirmación o pago inicial (Cliente).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">PAGO_ENVIADO</span>
+                Comprobante de abono o pago total subido al sistema. Aparece en Bandeja 1 para validación bancaria (Admin).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">EN_PRODUCCION</span>
+                Pago auditado y verificado. El pedido se encuentra físicamente en las máquinas de impresión (Bandeja 2).
+            </div>
+
+            <div class="mb-2">
+                <span class="d-block text-white fw-bold">LISTO_PARA_ENTREGA</span>
+                Proceso de fabricación terminado. Pieza almacenada en Bandeja 3 a la espera del retiro o envío final.
+            </div>
+
+            <div class="mb-0">
+                <span class="d-block text-white fw-bold">ENTREGADO</span>
+                El cliente ha recibido su pieza y el pago ha sido liquidado. El ciclo del pedido se considera cerrado.
+            </div>
+        </div>
+    </details>
+</div>
+
+
             <!-- HERRAMIENTA: PUENTE DE SOPORTE Y GESTIÓN FINANCIERA (F2) -->
             <div class="mx-3 mt-4 p-3 border border-secondary rounded bg-black text-start">
                 <small class="fw-bold d-block mb-2" style="font-size: 0.65rem; color: #F2C05F;">ACCESO RÁPIDO</small>
@@ -135,6 +238,10 @@ input[type=number] {
                 </div>
             </div>
         </div>
+
+
+
+
 
         <!-- LÓGICA DE NAVEGACIÓN Y MOTOR FINANCIERO -->
         <script th:inline="javascript">

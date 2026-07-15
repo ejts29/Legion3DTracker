@@ -172,6 +172,7 @@ public class Pedido {
     @org.hibernate.annotations.BatchSize(size = 50)
     @com.fasterxml.jackson.annotation.JsonManagedReference
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("id ASC")
     private List<Pago> pagos = new ArrayList<>();
 
     @Column(name = "fecha_entrega_real")
@@ -203,18 +204,18 @@ private String resumenFinancieroOperador;
      * Prioriza el link directo del pedido y luego recorre el historial de pagos.
      */
     public String getUltimoComprobante() {
+        // 1. Priorizamos recorrer el historial detallado de pagos de forma reversa (el más reciente primero)
+        if (this.pagos != null && !this.pagos.isEmpty()) {
+            for (int i = this.pagos.size() - 1; i >= 0; i--) {
+                String ref = this.pagos.get(i).getReferenciaComprobante();
+                if (ref != null && !ref.isBlank()) {
+                    return ref;
+                }
+            }
+        }
+        // 2. Si no hay pagos detallados con comprobante, caemos en el abono principal
         if (this.linkComprobantePago != null && !this.linkComprobantePago.isBlank()) {
             return this.linkComprobantePago;
-        }
-        if (this.pagos == null || this.pagos.isEmpty()) {
-            return "";
-        }
-        // Buscamos el último pago con referencia no nula ni vacía
-        for (int i = this.pagos.size() - 1; i >= 0; i--) {
-            String ref = this.pagos.get(i).getReferenciaComprobante();
-            if (ref != null && !ref.isBlank()) {
-                return ref;
-            }
         }
         return "";
     }

@@ -1075,7 +1075,7 @@ public class PedidoController {
     @Operation(summary = "Finalizar y despachar", description = "Registra la salida del producto del taller.")
     @ApiResponse(responseCode = "200", description = "Ciclo cerrado y correo de entrega enviado")
     @PatchMapping("/{id}/despachar")
-    public ResponseEntity<String> despacharPedido(
+    public ResponseEntity<?> despacharPedido(
             @Parameter(description = "ID del pedido a despachar", example = "1") @PathVariable Long id,
             @Parameter(description = "Datos logísticos enviados desde el modal frontal") @RequestBody java.util.Map<String, String> payload) {
 
@@ -1090,10 +1090,14 @@ public class PedidoController {
         String ordenLuis = payload.get("metodoEntregaReal");
         String linkFinal = payload.get("linkComprobanteEnvio");
 
-        // AUTOMATIZACIÓN EN DESPACHO LOGÍSTICO: Copiar comprobante a carpeta Starken
-        // central si es de Drive
+        if (ordenLuis == null || ordenLuis.isBlank())
+            ordenLuis = "STARKEN";
+
+        String fileId = extraerIdDeDrive(linkFinal);
+        String finalMailLink = linkFinal; // El link original para el correo
+        String voucherDriveLink = null; // Link del voucher generado o copiado
+
         if (linkFinal != null && !linkFinal.isBlank()) {
-            String fileId = extraerIdDeDrive(linkFinal);
             if (fileId != null) {
                 try {
                     String nuevoNombre = pedido.getCodigoSeguimiento() + "-starken-"
@@ -1103,59 +1107,94 @@ public class PedidoController {
                     GoogleDriveService.DriveUploadResult result = driveService.copiarArchivo(fileId, nuevoNombre,
                             "1WTuwjfjGtxi9kyp9BMp1KWpDvShgvLIn");
                     if (result != null) {
-                        linkFinal = result.getWebViewLink();
+                        voucherDriveLink = result.getWebViewLink();
+                        finalMailLink = result.getWebViewLink(); // Si es Drive, actualizamos para el cliente
                     }
                 } catch (Exception e) {
                     System.err
                             .println("⚠️ Fallo en automatización de copiado de Drive al despachar: " + e.getMessage());
                 }
+            } else if (!ordenLuis.equalsIgnoreCase("RETIRO")) {
+                // GENERACIÓN DE VOUCHER LOGÍSTICO AUTOMÁTICO EN MEMORIA (.txt)
+                try {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("==================================================\n");
+                    sb.append("       VOUCHER DE DESPACHO LOGÍSTICO - LEGION 3D\n");
+                    sb.append("==================================================\n");
+                    sb.append("Código de Seguimiento : ").append(pedido.getCodigoSeguimiento()).append("\n");
+                    sb.append("Cliente               : ")
+                            .append(pedido.getCliente() != null ? pedido.getCliente().getNombre() : "N/A").append("\n");
+                    sb.append("Método de Entrega     : ").append(ordenLuis).append("\n");
+                    sb.append("Detalle del Despacho  : ").append(linkFinal).append("\n");
+                    sb.append("Servicio Solicitado   : ")
+                            .append(pedido.getServicioSolicitado() != null ? pedido.getServicioSolicitado() : "N/A")
+                            .append("\n");
+                    sb.append("Fecha y Hora          : ")
+                            .append(java.time.LocalDateTime.now()
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                            .append("\n");
+                    sb.append("==================================================\n");
+
+                    String voucherText = sb.toString();
+                    byte[] bytes = voucherText.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+                    try (java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(bytes)) {
+                        String fileName = "voucher_despacho_" + pedido.getCodigoSeguimiento() + ".txt";
+                        GoogleDriveService.DriveUploadResult result = driveService.subirComprobantePago(
+                                bis, fileName, "text/plain", bytes.length, "1WTuwjfjGtxi9kyp9BMp1KWpDvShgvLIn");
+                        voucherDriveLink = result.getWebViewLink();
+                    }
+                } catch (Exception e) {
+                    System.err.println("⚠️ Error al generar/subir voucher logístico: " + e.getMessage());
+                }
             }
         }
 
-        if (ordenLuis == null || ordenLuis.isBlank())
-            ordenLuis = "STARKEN";
+        // REGLA ESTRICTA DE NEGOCIO: Guardamos intacto el código de tracking original
+        // del operador
+        pedido.setLinkComprobanteEnvio(linkFinal);
+        pedido.setEstadoActual("ENTREGADO");
+        pedidoRepo.save(pedido);
+        guardarHistorial(pedido, estadoAntiguo, "ENTREGADO");
 
         String servicio = pedido.getServicioSolicitado() != null ? pedido.getServicioSolicitado().toLowerCase() : "";
         String articulo = (servicio.contains("diseño") || servicio.contains("ingeniería")) ? "proyecto" : "pieza";
         String mensajeCorreo;
 
-        // BIFURCACIÓN LOGÍSTICA
+        // BIFURCACIÓN LOGÍSTICA PARA NOTIFICACIONES
         if (ordenLuis.equalsIgnoreCase("RETIRO")) {
             pedido.setLinkComprobanteEnvio("Retiro en Taller");
+            pedidoRepo.save(pedido); // Actualizamos el estado de texto para retiro
             mensajeCorreo = "Hola " + pedido.getCliente().getNombre() + ",\n\n"
                     + "¡Tu pedido ha sido entregado exitosamente de forma presencial en nuestro taller!\n"
                     + "Esperamos que disfrutes tu " + articulo + ". ¡Gracias por elegir a Legión 3D!";
 
         } else if (ordenLuis.equalsIgnoreCase("DIGITAL")) {
-            pedido.setLinkComprobanteEnvio(linkFinal);
             mensajeCorreo = "Hola " + pedido.getCliente().getNombre() + ",\n\n"
                     + "¡Tu " + articulo
                     + " ha sido entregado exitosamente de forma digital! Puedes descargar tus archivos finales en el siguiente enlace ➡️:\n"
-                    + "🔗 " + linkFinal + "\n\n"
+                    + "🔗 " + finalMailLink + "\n\n"
                     + "¡Gracias por confiar tu idea a Legión 3D!";
 
         } else if (ordenLuis.equalsIgnoreCase("MIXTO")) {
-            pedido.setLinkComprobanteEnvio(linkFinal);
             mensajeCorreo = "Hola " + pedido.getCliente().getNombre() + ",\n\n"
                     + "Tu " + articulo
                     + " va en camino físicamente y, además, te compartimos el enlace con los respaldos digitales ➡️:\n\n"
-                    + "📦 Información Logística: " + linkFinal + "\n\n"
+                    + "📦 Información Logística: " + finalMailLink + "\n\n"
                     + "¡Gracias por confiar tu proyecto integral a Legión 3D!";
 
         } else {
             // CASO POR DEFECTO: STARKEN / CHILEXPRESS
-            pedido.setLinkComprobanteEnvio(linkFinal);
             mensajeCorreo = "Hola " + pedido.getCliente().getNombre() + ",\n\n"
                     + "Tu " + articulo
-                    + " ha sido despachad@ y va en camino. Puedes rastrear tu envío con el siguiente enlace oficial ➡️: \n"
-                    + "🚚 " + linkFinal + "\n\n"
+                    + " ha sido despachad@ y va en camino. Puedes rastrear tu pedido con el siguiente Número de rastreo ➡️: \n"
+                    + "🚚 " + finalMailLink + "\n\n" // Cliente recibe su código original intacto
+                    + " Diríjase a La página oficial de Starken o Chilexpress e ingrese el código de rastreo para mayor información"
+                    + "\n\n"
+                    + "https://starken.cl/seguimiento" + "\n"
+                    + "https://www.chilexpress.cl" + "\n\n"
                     + "¡Gracias por elegir a Legión 3D!";
         }
-
-        // CIERRE DEFINITIVO DEL CICLO
-        pedido.setEstadoActual("ENTREGADO");
-        pedidoRepo.save(pedido);
-        guardarHistorial(pedido, estadoAntiguo, "ENTREGADO");
 
         try {
             emailService.enviarCorreoSimple(pedido.getCliente().getEmail(), "🤝 Pedido Finalizado y Entregado",
@@ -1164,7 +1203,13 @@ public class PedidoController {
             System.err.println("Error enviando correo de cierre: " + e.getMessage());
         }
 
-        return ResponseEntity.ok("¡Ciclo cerrado! Método aplicado: " + ordenLuis.toUpperCase());
+        // RESPUESTA EN FORMATO JSON
+        java.util.Map<String, String> responseMap = new java.util.HashMap<>();
+        responseMap.put("mensaje", "¡Ciclo cerrado! Método aplicado: " + ordenLuis.toUpperCase());
+        if (voucherDriveLink != null) {
+            responseMap.put("voucherDriveLink", voucherDriveLink);
+        }
+        return ResponseEntity.ok(responseMap);
     }
 
     // -----------------------
@@ -1553,8 +1598,12 @@ public class PedidoController {
             @RequestParam(value = "evidencia", required = false) org.springframework.web.multipart.MultipartFile evidencia) {
         try {
             Pago pagoRealizado = pagoService.registrarPagoManual(id, monto, metodoPago, concepto, evidencia);
-            return ResponseEntity
-                    .ok(java.util.Map.of("mensaje", "Pago registrado con éxito.", "id", pagoRealizado.getId()));
+            boolean requiereDescarga = pagoRealizado.getReferenciaComprobante() != null
+                    && !pagoRealizado.getReferenciaComprobante().isBlank();
+            return ResponseEntity.ok(java.util.Map.of(
+                    "mensaje", "Pago registrado con éxito.",
+                    "id", pagoRealizado.getId(),
+                    "requiereDescarga", requiereDescarga));
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(java.util.Map.of("error", "Error al registrar el pago: " + e.getMessage()));
@@ -1777,7 +1826,7 @@ public class PedidoController {
         }
 
         Pedido pedido = pedidoOpt.get();
-        String linkPago = pedido.getLinkComprobantePago();
+        String linkPago = pedido.getUltimoComprobante();
 
         if (linkPago == null || linkPago.isBlank()) {
             enviarErrorJson(response, 404, "SIN_EVIDENCIA", "El cliente no ha subido comprobante.");
@@ -1880,6 +1929,62 @@ public class PedidoController {
         }
 
         return tracking + "-pago-" + nombreSeguro;
+    }
+
+    @Operation(summary = "Descargar comprobante de despacho", description = "Busca y descarga la evidencia logístico/Starken desde Google Drive.")
+    @GetMapping("/{id}/descargar-despacho")
+    public void descargarComprobanteEnvio(
+            @PathVariable Long id,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+
+        Optional<Pedido> pedidoOpt = pedidoRepo.findById(id);
+        if (pedidoOpt.isEmpty()) {
+            enviarErrorJson(response, 404, "NO_ENCONTRADO", "Pedido no existe.");
+            return;
+        }
+
+        Pedido pedido = pedidoOpt.get();
+        String driveId = null;
+
+        // BÚSQUEDA DINÁMICA EN DRIVE (Opción A):
+        try {
+            String queryName = "voucher_despacho_" + pedido.getCodigoSeguimiento() + ".txt";
+            driveId = driveService.buscarArchivoPorNombre(queryName);
+        } catch (Exception e) {
+            System.err.println("⚠️ Error buscando voucher en Google Drive: " + e.getMessage());
+        }
+
+        // Fallback final: Si sigue siendo nulo, intentamos extraer del campo de envío
+        // directo
+        if (driveId == null && pedido.getLinkComprobanteEnvio() != null) {
+            driveId = extraerIdDeDrive(pedido.getLinkComprobanteEnvio());
+        }
+
+        if (driveId == null) {
+            enviarErrorJson(response, 404, "SIN_VOUCHER", "No se encontró el voucher de despacho en Google Drive.");
+            return;
+        }
+
+        try {
+            com.google.api.services.drive.model.File metadata = driveService.obtenerMetadata(driveId);
+            String finalName = "voucher_despacho_" + pedido.getCodigoSeguimiento() + ".txt";
+
+            response.setContentType("text/plain");
+            response.setHeader(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + finalName + "\"");
+
+            if (metadata.getSize() != null) {
+                response.setContentLengthLong(metadata.getSize());
+            }
+
+            try (java.io.OutputStream out = response.getOutputStream()) {
+                driveService.descargarArchivo(driveId, out);
+                out.flush();
+            }
+
+        } catch (Exception e) {
+            enviarErrorJson(response, 500, "ERROR_DESCARGA", "Fallo al descargar de la nube: " + e.getMessage());
+        }
     }
 
     /**
