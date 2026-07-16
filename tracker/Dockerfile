@@ -23,3 +23,5 @@ RUN ./mvnw clean package -DskipTests
 # Comando para ejecutar la aplicación
 # El JAR se genera en la carpeta target tras la compilación
 CMD ["java", "-jar", "target/tracker-0.0.1-SNAPSHOT.jar"]
+
+RUN ls -R /app/target
