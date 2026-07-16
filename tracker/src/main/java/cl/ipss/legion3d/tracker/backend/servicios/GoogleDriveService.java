@@ -24,6 +24,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.List;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.http.HttpCredentialsAdapter;
 
 /**
  * SERVICIO DE INTEGRACIÓN CLOUD - GOOGLE DRIVE API (OAuth 2.0 Desktop Flow)
@@ -48,68 +50,39 @@ public class GoogleDriveService {
     @PostConstruct
     public void init() {
         try {
-            com.google.api.client.http.HttpTransport httpTransport =
-                    GoogleNetHttpTransport.newTrustedTransport();
-            com.google.api.client.json.JsonFactory jsonFactory =
-                    GsonFactory.getDefaultInstance();
+            com.google.api.client.http.HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+            com.google.api.client.json.JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
-// Carga del archivo de credenciales de Google Drive (híbrido: archivo en disco, variable de entorno o classpath)
-            InputStream in;
+            // Carga de credenciales utilizando la librería de autenticación de Google Cloud
+            // (Recomendado para servidores)
             java.io.File secretFile = new java.io.File("/etc/secrets/client_secret.json");
 
+            com.google.auth.oauth2.GoogleCredentials credentials;
             if (secretFile.exists()) {
-                in = new java.io.FileInputStream(secretFile);
-                System.out.println("ℹ️ Cargando credenciales de Google Drive desde archivo en disco: /etc/secrets/client_secret.json");
-            } else {
-                String clientSecretEnv = System.getenv("GOOGLE_CLIENT_SECRET_JSON");
-                if (clientSecretEnv != null && !clientSecretEnv.isBlank()) {
-                    in = new java.io.ByteArrayInputStream(clientSecretEnv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    System.out.println("ℹ️ Cargando credenciales de Google Drive desde la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
-                } else {
-                    in = GoogleDriveService.class.getResourceAsStream("/credentials/client_secret.json");
-                    if (in == null) {
-                        throw new java.io.FileNotFoundException("No se encontró el archivo client_secret.json en /etc/secrets/, en el classpath, ni en la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
-                    }
-                    System.out.println("ℹ️ Cargando credenciales de Google Drive desde el archivo local en classpath");
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(secretFile)) {
+                    credentials = com.google.auth.oauth2.GoogleCredentials.fromStream(fis)
+                            .createScoped(Collections.singletonList(DriveScopes.DRIVE));
                 }
+                System.out.println(
+                        "ℹ️ Cargando credenciales de Google Drive desde archivo en disco: /etc/secrets/client_secret.json");
+            } else {
+                throw new java.io.FileNotFoundException(
+                        "No se encontró el archivo de credenciales en /etc/secrets/client_secret.json");
             }
 
-            GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(
-                    jsonFactory, new InputStreamReader(in));
-
-            // Configurar el flujo de autorización con permisos de lectura y escritura totales (DRIVE)
-            List<String> scopes = Collections.singletonList(DriveScopes.DRIVE);
-
-            // Directorio para almacenar localmente el token de acceso
-            java.io.File tokensFolder = new java.io.File("src/main/resources/credentials/tokens");
-            if (!tokensFolder.exists()) {
-                tokensFolder.mkdirs();
-            }
-            FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(tokensFolder);
-
-            GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                    httpTransport, jsonFactory, clientSecrets, scopes)
-                    .setDataStoreFactory(dataStoreFactory)
-                    .setAccessType("offline")
-                    .build();
-
-            // LocalServerReceiver levantará un receptor en un puerto local libre o configurado (ej: 8888)
-            // Esto abrirá automáticamente el navegador web para conceder los permisos
-            LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-            Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
-
-            // Construir el cliente oficial de Drive
+            // Construir el cliente oficial de Drive usando el adaptador de credenciales
             driveService = new Drive.Builder(
-                    httpTransport, 
-                    jsonFactory, 
-                    credential)
+                    httpTransport,
+                    jsonFactory,
+                    new com.google.auth.http.HttpCredentialsAdapter(credentials))
                     .setApplicationName("Legion3DTracker")
                     .build();
 
-            System.out.println("✅ Google Drive Service inicializado correctamente con OAuth 2.0 Desktop Flow. Hash: " + System.identityHashCode(driveService));
+            System.out.println("✅ Google Drive Service inicializado correctamente con Cuenta de Servicio. Hash: "
+                    + System.identityHashCode(driveService));
 
         } catch (Exception e) {
-            System.err.println("❌ Error al inicializar Google Drive con OAuth 2.0: " + e.getMessage());
+            System.err.println("❌ Error al inicializar Google Drive: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -125,8 +98,7 @@ public class GoogleDriveService {
 
             if (driveService == null) {
                 throw new IllegalStateException(
-                        "Google Drive Service no está inicializado. Revisa las credenciales de client_secret.json."
-                );
+                        "Google Drive Service no está inicializado. Revisa las credenciales de client_secret.json.");
             }
         }
     }
@@ -134,7 +106,8 @@ public class GoogleDriveService {
     /**
      * SUBIDA DE ARCHIVO TÉCNICO A GOOGLE DRIVE
      *
-     * Este método se usa cuando el cliente sube un archivo desde el Formulario Técnico.
+     * Este método se usa cuando el cliente sube un archivo desde el Formulario
+     * Técnico.
      */
     public DriveUploadResult subirArchivo(MultipartFile file, String codigoSeguimiento) throws IOException {
         asegurarDriveInicializado();
@@ -159,9 +132,8 @@ public class GoogleDriveService {
 
         // STREAMING DIRECTO: Sin archivos temporales en disco
         InputStreamContent mediaContent = new InputStreamContent(
-                file.getContentType(), 
-                file.getInputStream()
-        );
+                file.getContentType(),
+                file.getInputStream());
         mediaContent.setLength(file.getSize());
 
         System.out.println("DEBUG: ID carpeta usada en subida (subirArchivo): " + carpetaDestinoId);
@@ -179,9 +151,11 @@ public class GoogleDriveService {
      *
      * Este método se usa cuando el cliente o Luis sube un comprobante de pago.
      */
-    public DriveUploadResult subirComprobantePago(MultipartFile archivo, String tracking, int correlativo) throws IOException {
+    public DriveUploadResult subirComprobantePago(MultipartFile archivo, String tracking, int correlativo)
+            throws IOException {
         asegurarDriveInicializado();
-        System.out.println("DEBUG: En subirComprobantePago, hash de driveService: " + System.identityHashCode(driveService));
+        System.out.println(
+                "DEBUG: En subirComprobantePago, hash de driveService: " + System.identityHashCode(driveService));
 
         if (archivo == null || archivo.isEmpty()) {
             throw new IOException("Comprobante vacío o nulo.");
@@ -204,9 +178,8 @@ public class GoogleDriveService {
 
         // STREAMING DIRECTO: Sin archivos temporales en disco
         InputStreamContent mediaContent = new InputStreamContent(
-                archivo.getContentType(), 
-                archivo.getInputStream()
-        );
+                archivo.getContentType(),
+                archivo.getInputStream());
         mediaContent.setLength(archivo.getSize());
 
         System.out.println("DEBUG: ID carpeta usada en subida (subirComprobantePago): " + carpetaDestinoId);
@@ -224,14 +197,16 @@ public class GoogleDriveService {
      *
      * Este método se usa cuando se autogenera un voucher txt en memoria.
      */
-    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType, long size) throws IOException {
+    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType,
+            long size) throws IOException {
         return subirComprobantePago(stream, fileName, contentType, size, CARPETA_PAGOS_NV);
     }
 
     /**
      * SUBIDA DE COMPROBANTE DE PAGO EN FLUJO PARAMETRIZANDO LA CARPETA RAÍZ
      */
-    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType, long size, String folderId) throws IOException {
+    public DriveUploadResult subirComprobantePago(java.io.InputStream stream, String fileName, String contentType,
+            long size, String folderId) throws IOException {
         asegurarDriveInicializado();
         if (stream == null) {
             throw new IOException("Stream vacío o nulo.");
@@ -259,7 +234,8 @@ public class GoogleDriveService {
      */
     public String buscarArchivoPorNombreYPadre(String nombre, String parentId) throws IOException {
         asegurarDriveInicializado();
-        String query = "name = '" + nombre.replace("'", "\\'") + "' and '" + parentId + "' in parents and trashed = false";
+        String query = "name = '" + nombre.replace("'", "\\'") + "' and '" + parentId
+                + "' in parents and trashed = false";
         com.google.api.services.drive.model.FileList result = driveService.files().list()
                 .setQ(query)
                 .setFields("files(id)")
@@ -289,7 +265,8 @@ public class GoogleDriveService {
     /**
      * Aplica permiso de lectura pública con enlace.
      *
-     * Desactivado por razones de seguridad (los archivos deben permanecer privados).
+     * Desactivado por razones de seguridad (los archivos deben permanecer
+     * privados).
      */
     private void aplicarPermisoLectura(String fileId) throws IOException {
         // Método desactivado por seguridad.
@@ -391,7 +368,8 @@ public class GoogleDriveService {
     /**
      * COPIA DE ARCHIVO NATIVA DE GOOGLE DRIVE (Retorna resultado de subida)
      */
-    public DriveUploadResult copiarArchivo(String fileId, String nuevoNombre, String destinoFolderId) throws IOException {
+    public DriveUploadResult copiarArchivo(String fileId, String nuevoNombre, String destinoFolderId)
+            throws IOException {
         asegurarDriveInicializado();
 
         if (fileId == null || fileId.isBlank()) {
@@ -478,8 +456,7 @@ public class GoogleDriveService {
         String query = String.format(
                 "mimeType='application/vnd.google-apps.folder' and '%s' in parents and name='%s' and trashed=false",
                 parentId,
-                nombreSeguro
-        );
+                nombreSeguro);
 
         com.google.api.services.drive.model.FileList result = driveService.files()
                 .list()
@@ -546,11 +523,13 @@ public class GoogleDriveService {
     }
 
     /**
-     * Limpia los archivos de una carpeta específica que superen los días de antigüedad.
+     * Limpia los archivos de una carpeta específica que superen los días de
+     * antigüedad.
      */
     public void limpiarCarpetaPorAntiguedad(String folderId, int diasAntiguedad) {
         try {
-            java.time.ZonedDateTime fechaLimite = java.time.ZonedDateTime.now(java.time.ZoneId.of("UTC")).minusDays(diasAntiguedad);
+            java.time.ZonedDateTime fechaLimite = java.time.ZonedDateTime.now(java.time.ZoneId.of("UTC"))
+                    .minusDays(diasAntiguedad);
             String fechaFormat = java.time.format.DateTimeFormatter.ISO_INSTANT.format(fechaLimite);
 
             String query = "'" + folderId + "' in parents and modifiedTime < '" + fechaFormat + "' and trashed = false";
