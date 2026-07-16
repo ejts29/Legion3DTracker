@@ -53,18 +53,25 @@ public class GoogleDriveService {
             com.google.api.client.json.JsonFactory jsonFactory =
                     GsonFactory.getDefaultInstance();
 
-            // Carga del archivo de credenciales de Google Drive (híbrido: variable de entorno o classpath)
+// Carga del archivo de credenciales de Google Drive (híbrido: archivo en disco, variable de entorno o classpath)
             InputStream in;
-            String clientSecretEnv = System.getenv("GOOGLE_CLIENT_SECRET_JSON");
-            if (clientSecretEnv != null && !clientSecretEnv.isBlank()) {
-                in = new java.io.ByteArrayInputStream(clientSecretEnv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                System.out.println("ℹ️ Cargando credenciales de Google Drive desde la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
+            java.io.File secretFile = new java.io.File("/etc/secrets/client_secret.json");
+
+            if (secretFile.exists()) {
+                in = new java.io.FileInputStream(secretFile);
+                System.out.println("ℹ️ Cargando credenciales de Google Drive desde archivo en disco: /etc/secrets/client_secret.json");
             } else {
-                in = GoogleDriveService.class.getResourceAsStream("/credentials/client_secret.json");
-                if (in == null) {
-                    throw new java.io.FileNotFoundException("No se encontró el archivo client_secret.json en el classpath ni la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
+                String clientSecretEnv = System.getenv("GOOGLE_CLIENT_SECRET_JSON");
+                if (clientSecretEnv != null && !clientSecretEnv.isBlank()) {
+                    in = new java.io.ByteArrayInputStream(clientSecretEnv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    System.out.println("ℹ️ Cargando credenciales de Google Drive desde la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
+                } else {
+                    in = GoogleDriveService.class.getResourceAsStream("/credentials/client_secret.json");
+                    if (in == null) {
+                        throw new java.io.FileNotFoundException("No se encontró el archivo client_secret.json en /etc/secrets/, en el classpath, ni en la variable de entorno GOOGLE_CLIENT_SECRET_JSON");
+                    }
+                    System.out.println("ℹ️ Cargando credenciales de Google Drive desde el archivo local en classpath");
                 }
-                System.out.println("ℹ️ Cargando credenciales de Google Drive desde el archivo local en classpath");
             }
 
             GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(
