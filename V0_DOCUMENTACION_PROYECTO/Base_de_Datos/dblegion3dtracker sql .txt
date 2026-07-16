@@ -1,0 +1,135 @@
+
+CREATE DATABASE IF NOT EXISTS dblegion3dtracker;
+USE dblegion3dtracker;
+
+
+-- 1. Tablas independientes
+CREATE TABLE `clientes` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) DEFAULT NULL,
+  `email` varchar(255) NOT NULL,
+  `telefono` varchar(50) DEFAULT NULL,
+  `rut` varchar(50) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_cliente_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `roles` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `nombre` (`nombre`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `usuarios` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. Tablas dependientes de clientes/usuarios
+CREATE TABLE `pedidos` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `cliente_id` bigint NOT NULL,
+  `codigo_seguimiento` varchar(100) NOT NULL,
+  `servicio_solicitado` varchar(255) DEFAULT NULL,
+  `tiene_archivo_inicial` tinyint(1) DEFAULT '0',
+  `link_archivo_inicial` varchar(1000) DEFAULT NULL,
+  `mensaje_original` text,
+  `origen_contacto` varchar(100) DEFAULT NULL,
+  `estado_actual` varchar(100) DEFAULT 'NUEVA',
+  `precio_final` double DEFAULT NULL,
+  `link_comprobante_pago` varchar(1000) DEFAULT NULL,
+  `link_comprobante_envio` varchar(1000) DEFAULT NULL,
+  `fecha_entrega_estimada` date DEFAULT NULL,
+  `mensaje_triage` text,
+  `fecha_vencimiento_presupuesto` date DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  `pedido_padre_id` bigint DEFAULT NULL,
+  `es_garantia` tinyint(1) DEFAULT '0',
+  `fecha_creacion` datetime DEFAULT CURRENT_TIMESTAMP,
+  `fecha_entrega_real` date DEFAULT NULL,
+  `descuento_porcentaje` double DEFAULT '0',
+  `precio_original` double DEFAULT '0',
+  `anotaciones_internas` text,
+  `desglose_costos` text,
+  `notas_auditoria` text,
+  `justificacion_cliente` text,
+  `resumen_financiero_operador` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_pedido_codigo` (`codigo_seguimiento`),
+  CONSTRAINT `fk_pedido_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `usuarios_roles` (
+  `usuario_id` bigint NOT NULL,
+  `rol_id` bigint NOT NULL,
+  PRIMARY KEY (`usuario_id`,`rol_id`),
+  CONSTRAINT `fk_ur_rol` FOREIGN KEY (`rol_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ur_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Tablas dependientes de pedidos
+CREATE TABLE `detalles_tecnicos` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint NOT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  `medida_ancho` double DEFAULT NULL,
+  `medida_alto` double DEFAULT NULL,
+  `medida_profundidad` double DEFAULT NULL,
+  `cantidad_unidades` int DEFAULT NULL,
+  `dias_entrega` varchar(100) DEFAULT NULL,
+  `drive_file_id` varchar(255) DEFAULT NULL,
+  `tiene_pieza_fisica` tinyint(1) DEFAULT '0',
+  `necesita_modificacion` varchar(255) DEFAULT NULL,
+  `es_copia_exacta` tinyint(1) DEFAULT '0',
+  `material_solicitado` varchar(100) DEFAULT NULL,
+  `color_solicitado` varchar(100) DEFAULT NULL,
+  `entorno_uso` varchar(100) DEFAULT NULL,
+  `presupuesto_estimado` varchar(100) DEFAULT NULL,
+  `metodo_entrega` varchar(100) DEFAULT NULL,
+  `tolerancia_check` tinyint(1) DEFAULT '0',
+  `rut` varchar(50) DEFAULT NULL,
+  `telefono_contacto` varchar(50) DEFAULT NULL,
+  `region` varchar(100) DEFAULT NULL,
+  `comuna` varchar(100) DEFAULT NULL,
+  `calle_y_numero` varchar(255) DEFAULT NULL,
+  `depto_casa_oficina` varchar(255) DEFAULT NULL,
+  `informacion_adicional` varchar(1000) DEFAULT NULL,
+  `tipo_envio_starken` varchar(100) DEFAULT NULL,
+  `link_archivo_final` varchar(1000) DEFAULT NULL,
+  `link_formulario_ingenieria` varchar(1000) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_detalles_pedido_id` (`pedido_id`),
+  CONSTRAINT `fk_detalles_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `pedidos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `historial_estados` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint NOT NULL,
+  `estado_anterior` varchar(100) DEFAULT NULL,
+  `estado_nuevo` varchar(100) NOT NULL,
+  `comentario` text,
+  `fecha_cambio` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_historial_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `pedidos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `pagos` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pedido_id` bigint NOT NULL,
+  `monto` double NOT NULL,
+  `fecha_pago` datetime DEFAULT CURRENT_TIMESTAMP,
+  `metodo_pago` varchar(100) NOT NULL,
+  `referencia_comprobante` varchar(1000) DEFAULT NULL,
+  `concepto` varchar(255) DEFAULT 'Abono',
+  `drive_file_id` varchar(255) DEFAULT NULL,
+  `origen_registro` varchar(50) DEFAULT 'CLIENTE',
+  `origen_pago` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_pago_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `pedidos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
