@@ -1,14 +1,13 @@
 package cl.ipss.legion3d.tracker.backend.servicios;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.scheduling.annotation.Async;
-//import java.text.DecimalFormat;
+import java.util.Properties;
 
 /**
  * Este archivo se llama EmailService y es el sistema circulatorio de nuestra aplicación.
@@ -22,9 +21,8 @@ import org.springframework.scheduling.annotation.Async;
 @Service
 public class EmailService {
 
-    // Herramienta nativa de Spring que configuramos para conectarse con nuestro servidor SMTP corporativo
     @Autowired
-    private JavaMailSender mailSender;
+    private GmailApiService gmailApiService;
 
     /**
      * ENVÍO SIMPLE (Texto Plano)
@@ -39,19 +37,22 @@ public class EmailService {
     @Async
     public void enviarCorreoSimple(String destinatario, String asunto, String mensaje) {
         try {
-            SimpleMailMessage correo = new SimpleMailMessage();
+            Session session = Session.getInstance(new Properties());
+            MimeMessage mimeMessage = new MimeMessage(session);
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
             // (aqui modificar al desplegar a produccion: cambiar el remitente por el correo
             // oficial de notificaciones del cliente)
-            correo.setFrom("notificaciones@legion3d.cl"); // Remitente oficial
-            correo.setTo(destinatario);
-            correo.setSubject(asunto);
-            correo.setText(mensaje);
+            helper.setFrom("notificaciones@legion3d.cl"); // Remitente oficial
+            helper.setTo(destinatario);
+            helper.setSubject(asunto);
+            helper.setText(mensaje);
 
-            mailSender.send(correo);
-            System.out.println(">>> [EMAIL SIMPLE] Enviado a: " + destinatario);
+            gmailApiService.enviarCorreoMime(mimeMessage);
+            System.out.println(">>> [EMAIL SIMPLE GMAIL API] Enviado a: " + destinatario);
 
         } catch (Exception e) {
-            System.err.println("⚠️ Error en envío simple: " + e.getMessage());
+            System.err.println("⚠️ Error en envío simple Gmail API: " + e.getMessage());
         }
     }
 
@@ -65,7 +66,8 @@ public class EmailService {
         try {
             // Creamos un mensaje "Mime", un protocolo de internet que nos permite construir un correo 
             // estructurado en múltiples partes para soportar tanto el texto como los archivos pesados.
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            Session session = Session.getInstance(new Properties());
+            MimeMessage mimeMessage = new MimeMessage(session);
 
             // MimeMessageHelper es el asistente de Spring para configurar este correo complejo.
             // El valor 'true' activa explícitamente el modo "multipart" (permite adjuntos)
@@ -83,17 +85,17 @@ public class EmailService {
             if (archivo != null && !archivo.isEmpty()) {
                 // Se extrae el nombre original del archivo para que el cliente lo reconozca al descargarlo
                 helper.addAttachment(archivo.getOriginalFilename(), archivo);
-                System.out.println(">>> [ADJUNTO] Pegando archivo: " + archivo.getOriginalFilename());
+                System.out.println(">>> [ADJUNTO GMAIL API] Pegando archivo: " + archivo.getOriginalFilename());
             }
 
-            // Realizamos el envío físico a través de internet
-            mailSender.send(mimeMessage);
-            System.out.println(">>> [EMAIL COMPLEJO] Enviado con éxito a: " + destinatario);
+            // Realizamos el envío físico a través de la API de Gmail
+            gmailApiService.enviarCorreoMime(mimeMessage);
+            System.out.println(">>> [EMAIL COMPLEJO GMAIL API] Enviado con éxito a: " + destinatario);
 
         } catch (Exception e) {
-            // Si el envío falla por un problema externo (como un archivo excediendo el peso límite del SMTP 
+            // Si el envío falla por un problema externo (como un archivo excediendo el peso límite de la API
             // o una caída de red), capturamos el error para no hacer colapsar nuestra aplicación de golpe.
-            System.err.println("⚠️ Falló el envío con adjunto: " + e.getMessage());
+            System.err.println("⚠️ Falló el envío con adjunto Gmail API: " + e.getMessage());
             throw new RuntimeException("No se pudo enviar el correo con la foto adjunta", e);
         }
     }
