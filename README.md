@@ -66,7 +66,7 @@ El proyecto sigue una arquitectura MVC con estricta separación de responsabilid
 
 El sistema se encuentra desplegado utilizando infraestructura de alta disponibilidad a costo cero (Serverless):
 
-🔗 **[Acceso a la Aplicación Desplegada (Legión 3D Tracker)](https://legion3dtracker-kwa7.onrender.com)**
+🔗 **<a href="[https://legion3dtracker-kwa7.onrender.com](https://legion3dtracker-kwa7.onrender.com)" target="_blank" rel="noopener noreferrer">Acceso a la Aplicación Desplegada (Legión 3D Tracker)</a>**
 
 * **Backend / Servidor:** Alojado en **Render.com**. Render detecta los *commits* en la rama `main` de GitHub y realiza el despliegue continuo de manera automática (CI/CD).
 * **Base de Datos:** Alojada en **Aiven.io**. Instancia administrada de MySQL 8.0 que centraliza la persistencia relacional del taller de forma segura.
